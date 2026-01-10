@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Antennas - Antenna Comparison{% endblock %}
+
+{% block content %}
+<div class="antennas-page">
+    <h1>Antenna Management</h1>
+
+    <!-- Add/Edit Form -->
+    <div class="card">
+        <h2>Add New Antenna</h2>
+        <form id="antenna-form" class="antenna-form">
+            <div class="form-group">
+                <label for="label">Label (short name)</label>
+                <input type="text" id="label" name="label" placeholder="e.g. efhw40" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <input type="text" id="description" name="description"
+                       placeholder="e.g. 40m EFHW, 30ft high, runs east-west" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Antenna</button>
+        </form>
+        <div id="form-message" class="form-message"></div>
+    </div>
+
+    <!-- Antenna List -->
+    <div class="card">
+        <h2>Defined Antennas</h2>
+        {% if antennas %}
+        <table class="antenna-table">
+            <thead>
+                <tr>
+                    <th>Label</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="antenna-list">
+                {% for label, info in antennas.items() %}
+                <tr data-label="{{ label }}">
+                    <td><strong>{{ label }}</strong></td>
+                    <td>{{ info.description }}</td>
+                    <td>
+                        <button class="btn btn-small btn-danger" onclick="deleteAntenna('{{ label }}')">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No antennas defined yet. Add one above to get started.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('antenna-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const label = document.getElementById('label').value.trim();
+    const description = document.getElementById('description').value.trim();
+    const msgDiv = document.getElementById('form-message');
+
+    try {
+        const response = await fetch('/api/antennas', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({label, description})
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            msgDiv.textContent = `Antenna '${label}' ${data.action}!`;
+            msgDiv.className = 'form-message success';
+            // Reload to show updated list
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            msgDiv.textContent = data.error || 'Error adding antenna';
+            msgDiv.className = 'form-message error';
+        }
+    } catch (err) {
+        msgDiv.textContent = 'Error: ' + err.message;
+        msgDiv.className = 'form-message error';
+    }
+});
+
+async function deleteAntenna(label) {
+    if (!confirm(`Delete antenna '${label}'?`)) return;
+
+    try {
+        const response = await fetch(`/api/antennas/${label}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.querySelector(`tr[data-label="${label}"]`).remove();
+        } else {
+            alert(data.error || 'Error deleting antenna');
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+</script>
+{% endblock %}

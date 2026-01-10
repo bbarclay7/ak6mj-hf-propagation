@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Antenna Comparison{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>Antenna Comparison Dashboard</h1>
+
+    <!-- Session Status Card -->
+    <div class="card status-card {% if status.active %}active{% endif %} {% if status.paused %}paused{% endif %}">
+        <h2>Session Status</h2>
+        <div class="status-indicator">
+            {% if status.active %}
+                {% if status.paused %}
+                    <span class="badge paused">PAUSED</span>
+                {% else %}
+                    <span class="badge active">ACTIVE</span>
+                {% endif %}
+            {% else %}
+                <span class="badge inactive">NO SESSION</span>
+            {% endif %}
+        </div>
+
+        {% if status.active %}
+        <div class="status-details">
+            <p><strong>Started:</strong> {{ status.start_time[:19] }} UTC</p>
+            <p><strong>Elapsed:</strong> <span id="elapsed-time">{{ (status.elapsed_seconds // 60) }}:{{ '%02d' % (status.elapsed_seconds % 60) }}</span></p>
+            {% if status.current_antenna %}
+            <p><strong>Current Antenna:</strong> {{ status.current_antenna }}</p>
+            <p><strong>On antenna:</strong> <span id="antenna-time">{{ (status.antenna_elapsed_seconds // 60) }}:{{ '%02d' % (status.antenna_elapsed_seconds % 60) }}</span></p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="status-actions">
+            {% if not status.active %}
+            <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Start Experiment</a>
+            {% else %}
+            <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Go to Experiment</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Solar Conditions Card -->
+    <div class="card solar-card">
+        <h2>Solar Conditions</h2>
+        {% if solar %}
+        <div class="solar-data">
+            <div class="solar-item">
+                <span class="solar-label">SFI</span>
+                <span class="solar-value">{{ solar.solarflux }}</span>
+            </div>
+            <div class="solar-item">
+                <span class="solar-label">K-Index</span>
+                <span class="solar-value">{{ solar.kindex }}</span>
+            </div>
+            <div class="solar-item">
+                <span class="solar-label">A-Index</span>
+                <span class="solar-value">{{ solar.aindex }}</span>
+            </div>
+            <div class="solar-item">
+                <span class="solar-label">Geomag</span>
+                <span class="solar-value">{{ solar.geomagfield }}</span>
+            </div>
+        </div>
+        {% else %}
+        <p class="error">Could not fetch solar data</p>
+        {% endif %}
+    </div>
+
+    <!-- Antennas Card -->
+    <div class="card">
+        <h2>Defined Antennas</h2>
+        {% if antennas %}
+        <ul class="antenna-list">
+            {% for label, info in antennas.items() %}
+            <li>
+                <strong>{{ label }}</strong>: {{ info.description }}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No antennas defined. <a href="{{ url_for('antennas_page') }}">Add some</a>.</p>
+        {% endif %}
+    </div>
+
+    <!-- Recent Comparisons Card -->
+    <div class="card">
+        <h2>Recent Comparisons</h2>
+        {% if comparisons %}
+        <ul class="comparison-list">
+            {% for comp in comparisons %}
+            <li>
+                <a href="{{ url_for('analysis_page', comparison_id=comp.id) }}">
+                    {{ comp.id }}
+                </a>
+                {% if comp.antennas %}
+                <span class="comparison-antennas">{{ comp.antennas | join(', ') }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <a href="{{ url_for('comparisons_page') }}" class="btn btn-secondary">View All</a>
+        {% else %}
+        <p>No comparisons yet. Run an experiment to create one.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh status every 10 seconds
+setInterval(function() {
+    fetch('/api/status')
+        .then(r => r.json())
+        .then(data => {
+            if (data.active) {
+                const mins = Math.floor(data.elapsed_seconds / 60);
+                const secs = data.elapsed_seconds % 60;
+                document.getElementById('elapsed-time').textContent =
+                    mins + ':' + String(secs).padStart(2, '0');
+
+                if (data.current_antenna) {
+                    const antMins = Math.floor(data.antenna_elapsed_seconds / 60);
+                    const antSecs = data.antenna_elapsed_seconds % 60;
+                    document.getElementById('antenna-time').textContent =
+                        antMins + ':' + String(antSecs).padStart(2, '0');
+                }
+            }
+        });
+}, 10000);
+</script>
+{% endblock %}

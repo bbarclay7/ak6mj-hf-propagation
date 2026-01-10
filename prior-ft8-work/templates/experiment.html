@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Experiment - Antenna Comparison{% endblock %}
+
+{% block content %}
+<div class="experiment-page">
+    <!-- Header with session info -->
+    <div class="experiment-header {% if status.active %}active{% endif %} {% if status.paused %}paused{% endif %}">
+        <div class="session-status">
+            <span class="status-label">SESSION:</span>
+            {% if status.active %}
+                {% if status.paused %}
+                    <span class="badge paused">PAUSED</span>
+                {% else %}
+                    <span class="badge active">ACTIVE</span>
+                {% endif %}
+                <span class="elapsed">(<span id="elapsed">{{ (status.elapsed_seconds // 60) }}:{{ '%02d' % (status.elapsed_seconds % 60) }}</span>)</span>
+            {% else %}
+                <span class="badge inactive">NOT STARTED</span>
+            {% endif %}
+        </div>
+        <div class="solar-mini">
+            {% if solar %}
+            SFI: {{ solar.solarflux }} | K: {{ solar.kindex }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="experiment-grid">
+        <!-- Left: Current status and controls -->
+        <div class="experiment-main">
+            <!-- Current antenna display -->
+            <div class="card current-antenna-card" id="current-antenna-card">
+                <h2>Current</h2>
+                <div class="current-antenna">
+                    {% if status.current_antenna %}
+                    <span class="antenna-label" id="current-ant-label">{{ status.current_antenna }}</span>
+                    <span class="antenna-time" id="current-ant-time">{{ (status.antenna_elapsed_seconds // 60) }}:{{ '%02d' % (status.antenna_elapsed_seconds % 60) }}</span>
+                    {% else %}
+                    <span class="antenna-label none">No antenna selected</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="card actions-card">
+                <h2>Actions</h2>
+                <div class="action-buttons">
+                    {% if not status.active %}
+                    <button class="btn btn-primary btn-large" onclick="startSession()">Start Session</button>
+                    {% else %}
+                        {% if status.paused %}
+                        <button class="btn btn-success btn-large" onclick="resumeSession()">Resume</button>
+                        {% else %}
+                        <button class="btn btn-warning btn-large" onclick="pauseSession()">Pause</button>
+                        {% endif %}
+                    <button class="btn btn-danger" onclick="stopSession()">Stop Session</button>
+                    {% endif %}
+                </div>
+
+                {% if status.active %}
+                <div class="antenna-switch">
+                    <h3>Switch Antenna</h3>
+                    <div class="antenna-buttons">
+                        {% for label, info in antennas.items() %}
+                        <button class="btn btn-antenna {% if status.current_antenna == label %}active{% endif %}"
+                                onclick="useAntenna('{{ label }}')"
+                                title="{{ info.description }}">
+                            {{ label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <h3>Switch Band</h3>
+                    <div class="band-buttons">
+                        {% for band in ['20m', '15m', '10m', '40m', '80m'] %}
+                        <button class="btn btn-band" onclick="switchBand('{{ band }}')">{{ band }}</button>
+                        {% endfor %}
+                    </div>
+
+                    <h3>Antenna + Band</h3>
+                    <div class="combo-select">
+                        <select id="combo-antenna">
+                            {% for label in antennas.keys() %}
+                            <option value="{{ label }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="combo-band">
+                            <option value="">No band change</option>
+                            <option value="20m">20m</option>
+                            <option value="15m">15m</option>
+                            <option value="10m">10m</option>
+                            <option value="40m">40m</option>
+                            <option value="80m">80m</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="useCombo()">Switch</button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Plan display -->
+            <div class="card plan-card" id="plan-card">
+                <h2>Experiment Plan</h2>
+                <div class="plan-config" id="plan-config">
+                    <div class="form-row">
+                        <label>Duration per step:</label>
+                        <select id="plan-duration">
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Bands:</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" value="20m" checked> 20m</label>
+                            <label><input type="checkbox" value="15m" checked> 15m</label>
+                            <label><input type="checkbox" value="10m" checked> 10m</label>
+                            <label><input type="checkbox" value="40m"> 40m</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="plan-steps" id="plan-steps">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <div class="plan-next" id="plan-next">
+                    <!-- Shows next action suggestion -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Live preview -->
+        <div class="experiment-sidebar">
+            <div class="card preview-card">
+                <h2>Live Preview</h2>
+                <div id="preview-content">
+                    <p class="loading">Loading...</p>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshPreview()">Refresh</button>
+            </div>
+
+            {% if status.active %}
+            <div class="card">
+                <h2>Run Analysis</h2>
+                <p>Stop the session first, then run analysis to compare antennas.</p>
+                <button class="btn btn-primary" onclick="runAnalysis()" {% if status.active %}disabled{% endif %}>
+                    Run Analysis
+                </button>
+            </div>
+            {% elif not status.active and status.start_time %}
+            <div class="card">
+                <h2>Run Analysis</h2>
+                <div class="form-group">
+                    <label for="grid">Grid Square:</label>
+                    <input type="text" id="grid" value="CM98kq" placeholder="CM98kq">
+                </div>
+                <button class="btn btn-primary" onclick="runAnalysis()">Run Analysis</button>
+                <div id="analysis-status"></div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const antennas = {{ antennas | tojson }};
+const antennaLabels = Object.keys(antennas);
+let currentStatus = {{ status | tojson }};
+let planStartTime = null;
+let planSteps = [];
+
+// Initialize plan
+function initPlan() {
+    const duration = parseInt(document.getElementById('plan-duration').value);
+    const bandCheckboxes = document.querySelectorAll('.checkbox-group input:checked');
+    const bands = Array.from(bandCheckboxes).map(cb => cb.value);
+
+    planSteps = [];
+    bands.forEach(band => {
+        antennaLabels.forEach(ant => {
+            planSteps.push({band, antenna: ant, duration: duration * 60});
+        });
+    });
+
+    renderPlan();
+}
+
+function renderPlan() {
+    const container = document.getElementById('plan-steps');
+    if (!planSteps.length) {
+        container.innerHTML = '<p>Configure bands above</p>';
+        return;
+    }
+
+    let html = '<ol class="plan-list">';
+    let elapsed = 0;
+
+    planSteps.forEach((step, i) => {
+        const mins = Math.floor(step.duration / 60);
+        let status = 'pending';
+
+        if (currentStatus.active && planStartTime) {
+            const stepEnd = elapsed + step.duration;
+            const sessionElapsed = currentStatus.elapsed_seconds;
+
+            if (sessionElapsed >= stepEnd) {
+                status = 'completed';
+            } else if (sessionElapsed >= elapsed) {
+                status = 'current';
+            }
+        }
+
+        html += `<li class="plan-step ${status}" data-step="${i}">
+            <span class="step-antenna">${step.antenna}</span>
+            <span class="step-band">@ ${step.band}</span>
+            <span class="step-duration">(${mins} min)</span>
+        </li>`;
+
+        elapsed += step.duration;
+    });
+
+    html += '</ol>';
+    container.innerHTML = html;
+
+    updatePlanNext();
+}
+
+function updatePlanNext() {
+    const nextDiv = document.getElementById('plan-next');
+
+    if (!currentStatus.active) {
+        nextDiv.innerHTML = '<p>Start session to begin experiment</p>';
+        return;
+    }
+
+    // Find current step
+    let elapsed = 0;
+    let currentStep = null;
+    let nextStep = null;
+    let timeToNext = 0;
+
+    for (let i = 0; i < planSteps.length; i++) {
+        const stepEnd = elapsed + planSteps[i].duration;
+
+        if (currentStatus.elapsed_seconds < stepEnd) {
+            currentStep = planSteps[i];
+            timeToNext = stepEnd - currentStatus.elapsed_seconds;
+            nextStep = planSteps[i + 1] || null;
+            break;
+        }
+        elapsed += planSteps[i].duration;
+    }
+
+    if (!currentStep) {
+        nextDiv.innerHTML = '<p class="plan-complete">Plan complete! Stop session and run analysis.</p>';
+        return;
+    }
+
+    const mins = Math.floor(timeToNext / 60);
+    const secs = timeToNext % 60;
+    const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+
+    let html = `<div class="next-action">`;
+
+    if (timeToNext < 30) {
+        // Flashing alert when close to switch time
+        html += `<div class="alert-switch">TIME TO SWITCH!</div>`;
+    }
+
+    if (nextStep) {
+        html += `<p>In <strong>${timeStr}</strong>: Pause, switch to <strong>${nextStep.antenna}</strong>`;
+        if (nextStep.band !== currentStep.band) {
+            html += ` on <strong>${nextStep.band}</strong>`;
+        }
+        html += `, then resume</p>`;
+
+        const now = new Date();
+        const switchTime = new Date(now.getTime() + timeToNext * 1000);
+        html += `<p class="switch-time">Suggested time: ${switchTime.toLocaleTimeString()}</p>`;
+    } else {
+        html += `<p>In <strong>${timeStr}</strong>: Experiment complete</p>`;
+    }
+
+    html += `</div>`;
+    nextDiv.innerHTML = html;
+
+    // Add flashing effect when close
+    if (timeToNext < 30) {
+        document.getElementById('current-antenna-card').classList.add('alert');
+    } else {
+        document.getElementById('current-antenna-card').classList.remove('alert');
+    }
+}
+
+// Session controls
+async function startSession() {
+    const resp = await fetch('/api/start', {method: 'POST'});
+    const data = await resp.json();
+    if (data.success) {
+        planStartTime = new Date();
+        location.reload();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function stopSession() {
+    if (!confirm('Stop the current session?')) return;
+    const resp = await fetch('/api/stop', {method: 'POST'});
+    const data = await resp.json();
+    if (data.success) {
+        location.reload();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function pauseSession() {
+    const resp = await fetch('/api/pause', {method: 'POST'});
+    const data = await resp.json();
+    if (data.success) {
+        location.reload();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function resumeSession() {
+    const resp = await fetch('/api/resume', {method: 'POST'});
+    const data = await resp.json();
+    if (data.success) {
+        location.reload();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function useAntenna(label) {
+    const resp = await fetch('/api/use', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({antenna: label})
+    });
+    const data = await resp.json();
+    if (data.success) {
+        document.querySelectorAll('.btn-antenna').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.btn-antenna[onclick="useAntenna('${label}')"]`).classList.add('active');
+        document.getElementById('current-ant-label').textContent = label;
+        document.getElementById('current-ant-time').textContent = '0:00';
+        currentStatus.current_antenna = label;
+        currentStatus.antenna_elapsed_seconds = 0;
+    } else {
+        alert(data.error);
+    }
+}
+
+async function switchBand(band) {
+    const resp = await fetch('/api/wsjtx/switch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({band})
+    });
+    const data = await resp.json();
+    if (!data.success) {
+        alert('Failed to switch band (WSJT-X may not be connected)');
+    }
+}
+
+async function useCombo() {
+    const antenna = document.getElementById('combo-antenna').value;
+    const band = document.getElementById('combo-band').value || null;
+
+    const resp = await fetch('/api/use', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({antenna, band})
+    });
+    const data = await resp.json();
+    if (data.success) {
+        location.reload();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function refreshPreview() {
+    const container = document.getElementById('preview-content');
+    container.innerHTML = '<p class="loading">Loading...</p>';
+
+    try {
+        const resp = await fetch('/api/preview');
+        const data = await resp.json();
+
+        let html = '';
+
+        if (data.intervals && data.intervals.length > 0) {
+            html += '<div class="preview-intervals">';
+            data.intervals.forEach(interval => {
+                html += `<div class="preview-interval">
+                    <strong>${interval.antenna}</strong>`;
+                if (interval.band) {
+                    html += ` @ ${interval.band}`;
+                }
+                html += '<ul>';
+                for (const [band, count] of Object.entries(interval.stations_by_band || {})) {
+                    html += `<li>${band}: ${count} stations</li>`;
+                }
+                html += '</ul></div>';
+            });
+            html += '</div>';
+
+            html += `<p class="preview-total">Total: ${data.total_stations} unique stations</p>`;
+
+            if (data.last_decodes && data.last_decodes.length > 0) {
+                html += '<h4>Recent Decodes</h4><ul class="decode-list">';
+                data.last_decodes.forEach(d => {
+                    html += `<li>${d.callsign || '?'} ${d.snr}dB (${d.band})</li>`;
+                });
+                html += '</ul>';
+            }
+        } else {
+            html = '<p>No data yet. Start session and select an antenna.</p>';
+        }
+
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+    }
+}
+
+async function runAnalysis() {
+    const grid = document.getElementById('grid')?.value || 'CM98kq';
+    const statusDiv = document.getElementById('analysis-status');
+
+    statusDiv.innerHTML = '<p>Running analysis... (this may take a minute)</p>';
+
+    try {
+        const resp = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({grid})
+        });
+        const data = await resp.json();
+
+        if (data.success && data.comparison_id) {
+            statusDiv.innerHTML = `<p>Analysis complete! <a href="/analysis/${data.comparison_id}">View Results</a></p>`;
+        } else {
+            statusDiv.innerHTML = `<p class="error">${data.error || 'Analysis failed'}</p>`;
+        }
+    } catch (err) {
+        statusDiv.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+    }
+}
+
+// Update timers every second
+setInterval(function() {
+    if (currentStatus.active && !currentStatus.paused) {
+        currentStatus.elapsed_seconds++;
+        currentStatus.antenna_elapsed_seconds++;
+
+        const mins = Math.floor(currentStatus.elapsed_seconds / 60);
+        const secs = currentStatus.elapsed_seconds % 60;
+        document.getElementById('elapsed').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+
+        const antMins = Math.floor(currentStatus.antenna_elapsed_seconds / 60);
+        const antSecs = currentStatus.antenna_elapsed_seconds % 60;
+        const antTimeEl = document.getElementById('current-ant-time');
+        if (antTimeEl) {
+            antTimeEl.textContent = `${antMins}:${String(antSecs).padStart(2, '0')}`;
+        }
+
+        updatePlanNext();
+        renderPlan();
+    }
+}, 1000);
+
+// Refresh preview every 30 seconds
+setInterval(refreshPreview, 30000);
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    initPlan();
+    refreshPreview();
+
+    // Re-init plan when config changes
+    document.getElementById('plan-duration').addEventListener('change', initPlan);
+    document.querySelectorAll('.checkbox-group input').forEach(cb => {
+        cb.addEventListener('change', initPlan);
+    });
+
+    if (currentStatus.active) {
+        planStartTime = new Date(currentStatus.start_time);
+    }
+});
+</script>
+{% endblock %}

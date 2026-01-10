@@ -1,0 +1,1824 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis - {{ comparison.id }}{% endblock %}
+
+{% block content %}
+<div class="analysis-page">
+    <div class="page-header">
+        <div>
+            <h1>Analysis Results</h1>
+            <p class="comparison-id">{{ comparison.id.replace('comparison_', '') }}</p>
+        </div>
+        <div class="export-buttons">
+            <button onclick="exportHTML()" class="btn btn-export" title="Download standalone HTML file">Export HTML</button>
+            <button onclick="publishGist()" class="btn btn-publish" title="Publish to GitHub Gist">Publish to Gist</button>
+        </div>
+    </div>
+
+    {% if comparison.session %}
+    <div class="session-header">
+        <div class="session-info">
+            {% if comparison.session.my_grid %}
+            <span class="info-item">
+                <span class="info-label">QTH</span>
+                <span class="info-value">{{ comparison.session.my_grid }}</span>
+            </span>
+            {% endif %}
+            <span class="info-item">
+                <span class="info-label">Duration</span>
+                <span class="info-value" id="duration">--</span>
+            </span>
+            {% if comparison.session.solar %}
+            <span class="info-item">
+                <span class="info-label">SFI</span>
+                <span class="info-value">{{ comparison.session.solar.sfi }}</span>
+            </span>
+            <span class="info-item">
+                <span class="info-label">K</span>
+                <span class="info-value">{{ comparison.session.solar.k }}</span>
+            </span>
+            <span class="info-item">
+                <span class="info-label">A</span>
+                <span class="info-value">{{ comparison.session.solar.a }}</span>
+            </span>
+            <span class="info-item">
+                <span class="info-label">Geomag</span>
+                <span class="info-value info-value-sm">{{ comparison.session.solar.geomagfield }}</span>
+            </span>
+            {% endif %}
+        </div>
+        <div class="session-stats" id="session-stats">
+            <!-- Populated by JavaScript with station counts -->
+        </div>
+    </div>
+
+    <!-- Antennas Under Test -->
+    <div class="antennas-under-test">
+        {% set seen = namespace(antennas={}, idx=0) %}
+        {% for interval in comparison.session.intervals %}
+            {% if interval.antenna not in seen.antennas %}
+                {% set _ = seen.antennas.update({interval.antenna: seen.idx}) %}
+                <div class="antenna-detail" data-antenna-idx="{{ seen.idx }}">
+                    <span class="antenna-label">{{ interval.antenna }}</span>
+                    <span class="antenna-description">{{ interval.description }}</span>
+                </div>
+                {% set seen.idx = seen.idx + 1 %}
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Visual Summary / Recommendation (TOP) -->
+    <div class="results-summary" id="results-summary">
+        <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- Table of Contents -->
+    <nav class="toc">
+        <span class="toc-label">Jump to:</span>
+        <a href="#section-direction-analysis">Directional Analysis</a>
+        <a href="#section-az-map">Azimuthal Map</a>
+        <a href="#section-rx-band">RX by Band</a>
+        <a href="#section-tx-band">TX by Band</a>
+        <a href="#section-dx-reach">DX Reach</a>
+        <a href="#section-direction-table">Direction Table</a>
+        <a href="#section-timeline">Timeline</a>
+        <a href="#section-report">Full Report</a>
+    </nav>
+    {% endif %}
+
+    <!-- Direction Comparison Chart (HIGH VALUE) -->
+    <div class="card" id="section-direction-analysis">
+        <h2>Directional Advantage Analysis</h2>
+        <p class="chart-description">Shows which antenna performs better in each direction. Bar length = dB advantage.</p>
+        <div class="direction-chart-controls">
+            <span class="control-label">Source:</span>
+            <label class="radio-label"><input type="radio" name="dir-chart-type" value="rx" checked> WSJT-X (decoded)</label>
+            <label class="radio-label"><input type="radio" name="dir-chart-type" value="tx"> PSKReporter (transmitted)</label>
+        </div>
+        <div class="direction-comparison-chart" id="direction-comparison-chart">
+            <!-- SVG rendered by JavaScript -->
+        </div>
+        <div class="direction-insights" id="direction-insights">
+            <!-- Insights rendered by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Azimuthal Map (HIGH VALUE) -->
+    <div class="card" id="section-az-map">
+        <h2>Azimuthal Map</h2>
+        <div class="map-header">
+            <div class="map-controls">
+                <div class="map-control-group">
+                    <span class="control-label">Source:</span>
+                    <label class="radio-label"><input type="radio" name="map-type" value="rx" checked> WSJT-X (decoded)</label>
+                    <label class="radio-label"><input type="radio" name="map-type" value="tx"> PSKReporter (transmitted)</label>
+                </div>
+                <div class="map-control-group">
+                    <span class="control-label">Band:</span>
+                    <span id="map-band-radios">
+                        <label class="radio-label"><input type="radio" name="map-band" value="all" checked> All</label>
+                    </span>
+                </div>
+            </div>
+            <div class="map-legend" id="map-legend">
+                <!-- Legend rendered by JavaScript -->
+            </div>
+        </div>
+        <div class="azimuthal-map" id="azimuthal-map">
+            <!-- SVG rendered by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Band Comparison Charts -->
+    <div class="card" id="section-rx-band">
+        <h2>RX Performance by Band</h2>
+        <div class="band-charts" id="rx-charts">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <div class="card" id="section-tx-band">
+        <h2>TX Reach by Band</h2>
+        <div class="band-charts" id="tx-charts">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Distance Analysis -->
+    <div class="card" id="section-dx-reach">
+        <h2>DX Reach by Band</h2>
+        <div class="band-charts" id="dist-charts">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Bearing Analysis Table -->
+    <div class="card" id="section-direction-table">
+        <h2>Performance by Direction (Table)</h2>
+        <div class="compass-container" id="compass-container">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Experiment Timeline -->
+    <div class="card" id="section-timeline">
+        <h2>Experiment Timeline</h2>
+        <div class="timeline-container" id="timeline-container">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Collapsible Raw Report -->
+    <div class="card" id="section-report">
+        <h2 class="collapsible" onclick="toggleReport()">
+            Full Text Report <span id="report-toggle">▼</span>
+        </h2>
+        <div id="report-content" class="report-collapsed">
+            {% if comparison.report %}
+            <pre class="report-text">{{ comparison.report }}</pre>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Methodology Section -->
+    <div class="card methodology">
+        <h2 class="collapsible" onclick="toggleMethodology()">
+            Methodology <span id="methodology-toggle">▼</span>
+        </h2>
+        <div id="methodology-content" class="report-collapsed">
+            <div class="methodology-text">
+                <h3>Data Sources</h3>
+                <ul>
+                    <li><strong>RX (Receive) Data:</strong> Parsed from WSJT-X ALL.TXT log file, which records all decoded FT8 signals with timestamps, frequencies, and signal-to-noise ratios (SNR in dB).</li>
+                    <li><strong>TX (Transmit) Data:</strong> Retrieved from PSKReporter.info API, which aggregates reception reports from stations worldwide that heard your transmissions.</li>
+                    <li><strong>Solar Data:</strong> Solar Flux Index (SFI), K-index, and A-index from hamqsl.com at session start.</li>
+                </ul>
+
+                <h3>RX Analysis</h3>
+                <ul>
+                    <li><strong>Common Stations:</strong> Only stations heard by ALL antennas in a band are compared (apples-to-apples). This eliminates bias from propagation changes.</li>
+                    <li><strong>Average SNR:</strong> Mean signal-to-noise ratio across all common stations. Higher is better.</li>
+                    <li><strong>Baseline:</strong> First antenna in the comparison. Other antennas show delta (difference) from baseline.</li>
+                    <li><strong>Winner:</strong> Antenna with higher average SNR. Differences &lt;1 dB are considered ties (within measurement uncertainty).</li>
+                </ul>
+
+                <h3>TX Analysis</h3>
+                <ul>
+                    <li><strong>Reach:</strong> Number of unique stations that received your signal during each antenna interval.</li>
+                    <li><strong>Average Report:</strong> Mean SNR of reception reports from PSKReporter.</li>
+                    <li><strong>Common Receivers:</strong> Where possible, only receivers that heard both antennas are compared. When few common receivers exist, reach count is used instead.</li>
+                    <li><strong>PSKReporter Limitation:</strong> Data is only available for the last 24 hours and depends on receiving stations uploading to PSKReporter.</li>
+                </ul>
+
+                <h3>Distance Analysis</h3>
+                <ul>
+                    <li><strong>Average Distance:</strong> Mean great-circle distance to stations heard (RX) or that heard you (TX). Higher average = better DX performance.</li>
+                    <li><strong>Max Distance:</strong> Farthest station reached. Indicates antenna's long-haul capability.</li>
+                    <li><strong>Calculation:</strong> Haversine formula using station grid squares. Only stations with known grids are included.</li>
+                    <li><strong>Units:</strong> Distances shown in kilometers (km). 1 km ≈ 0.62 miles.</li>
+                </ul>
+
+                <h3>Direction Analysis</h3>
+                <ul>
+                    <li><strong>Bearing Calculation:</strong> Great-circle bearing from your grid square to each station's grid.</li>
+                    <li><strong>Direction Bins:</strong> 8 compass directions (N, NE, E, SE, S, SW, W, NW) in 45° sectors.</li>
+                    <li><strong>Per-Direction Winner:</strong> Antenna with better average SNR for stations in that direction. Helps identify directional patterns in antenna performance.</li>
+                </ul>
+
+                <h3>Recommendations</h3>
+                <ul>
+                    <li><strong>Win Counting:</strong> Each band and direction comparison contributes RX and TX "wins" to each antenna.</li>
+                    <li><strong>Overall Winner:</strong> Antenna with more combined wins across all bands.</li>
+                    <li><strong>Caveats:</strong> Results depend on propagation conditions during the test. For robust conclusions, repeat tests across multiple days and conditions.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <p><a href="{{ url_for('comparisons_page') }}">&larr; Back to History</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const session = {{ comparison.session | tojson if comparison.session else '{}' }};
+const reportText = {{ comparison.report | tojson if comparison.report else '""' }};
+const mapData = {{ comparison.map_data | tojson if comparison.map_data else '{}' }};
+const comparisonId = {{ comparison.id | tojson }};
+{% raw %}
+
+// Parse the report text to extract data
+function parseReport(text) {
+    const data = {
+        rxByBand: {},
+        txByBand: {},
+        rxByBearing: {},
+        rxDistByBand: {},
+        txDistByBand: {},
+        summary: {},
+        recommendation: null,
+        antennas: []
+    };
+
+    const lines = text.split('\n');
+    let section = null;
+    let currentBand = null;
+
+    for (const line of lines) {
+        // Detect sections
+        if (line.includes('COMPARISON BY BAND (Priority 1)')) {
+            section = 'rx_band';
+        } else if (line.includes('COMPARISON BY BEARING')) {
+            section = 'rx_bearing';
+        } else if (line.includes('TX BY BAND')) {
+            section = 'tx_band';
+        } else if (line.includes('TX BY BEARING')) {
+            section = 'tx_bearing';
+        } else if (line.includes('SUMMARY')) {
+            section = 'summary';
+        } else if (line.includes('RECOMMENDATION')) {
+            section = 'recommendation';
+        }
+
+        // Parse band headers
+        const bandMatch = line.match(/^(\d+m):/);
+        if (bandMatch) {
+            currentBand = bandMatch[1];
+        }
+
+        // Parse RX data: "    80ef1: avg SNR -3.5 dB (baseline)"
+        const rxMatch = line.match(/^\s+(\w+): avg SNR ([\-\d.]+) dB\s*(.*)/);
+        if (rxMatch && section === 'rx_band' && currentBand) {
+            const [_, ant, snr, extra] = rxMatch;
+            if (!data.rxByBand[currentBand]) data.rxByBand[currentBand] = {};
+            data.rxByBand[currentBand][ant] = {
+                snr: parseFloat(snr),
+                isBaseline: extra.includes('baseline'),
+                delta: extra.match(/([\+\-][\d.]+) dB/)?.[1] || '0'
+            };
+            if (!data.antennas.includes(ant)) data.antennas.push(ant);
+        }
+
+        // Parse TX data: "    80ef1: reach 65 stns (baseline) | avg -12.4 dB, range [-25 to +14]"
+        const txMatch = line.match(/^\s+(\w+): reach (\d+) stns\s*([^\|]*)\|?\s*avg ([\-\d.]+)/);
+        if (txMatch && section === 'tx_band' && currentBand) {
+            const [_, ant, reach, extra, avg] = txMatch;
+            if (!data.txByBand[currentBand]) data.txByBand[currentBand] = {};
+            data.txByBand[currentBand][ant] = {
+                reach: parseInt(reach),
+                avg: parseFloat(avg),
+                isBaseline: extra.includes('baseline'),
+                delta: extra.match(/([\+\-]\d+)/)?.[1] || '0'
+            };
+        }
+
+        // Parse distance data: "    80ef1: avg 5234 km, max 9821 km (45 stns) (baseline)"
+        const distMatch = line.match(/^\s+(\w+): avg (\d+) km, max (\d+) km \((\d+) stns\)\s*(.*)/);
+        if (distMatch && currentBand) {
+            const [_, ant, avgDist, maxDist, count, extra] = distMatch;
+            const isRxDist = section === 'rx_band';
+            const targetObj = isRxDist ? data.rxDistByBand : data.txDistByBand;
+            if (!targetObj[currentBand]) targetObj[currentBand] = {};
+            targetObj[currentBand][ant] = {
+                avg: parseInt(avgDist),
+                max: parseInt(maxDist),
+                count: parseInt(count),
+                isBaseline: extra.includes('baseline'),
+                delta: extra.match(/([\+\-]\d+) km/)?.[1] || '0'
+            };
+        }
+
+        // Parse summary lines
+        const summaryMatch = line.match(/^\s+(\w+) vs (\w+): (.+)/);
+        if (summaryMatch && section === 'summary') {
+            const [_, ant1, ant2, verdict] = summaryMatch;
+            if (!data.summary[currentBand]) data.summary[currentBand] = {};
+            data.summary[currentBand] = {ant1, ant2, verdict};
+        }
+
+        // Parse recommendation
+        if (line.includes('-->')) {
+            data.recommendation = line.replace('-->', '').trim();
+        }
+
+        // Parse wins
+        const winsMatch = line.match(/^\s+(\w+): (\d+) RX wins, (\d+) TX wins/);
+        if (winsMatch) {
+            const [_, ant, rx, tx] = winsMatch;
+            if (!data.wins) data.wins = {};
+            data.wins[ant] = {rx: parseInt(rx), tx: parseInt(tx)};
+        }
+    }
+
+    return data;
+}
+
+// Get consistent antenna index for coloring
+function getAntennaIdx(ant, antennas) {
+    const idx = antennas.indexOf(ant);
+    return idx >= 0 ? idx : 0;
+}
+
+function renderSummary(data) {
+    const container = document.getElementById('results-summary');
+    if (!data.recommendation) {
+        container.innerHTML = '<p>No summary data available</p>';
+        return;
+    }
+
+    let html = '<div class="summary-cards">';
+
+    // Winner card
+    html += `<div class="summary-card winner">
+        <div class="card-icon">🏆</div>
+        <div class="card-content">
+            <div class="card-label">Recommended</div>
+            <div class="card-value">${data.recommendation}</div>
+        </div>
+    </div>`;
+
+    // Wins breakdown
+    if (data.wins) {
+        for (const [ant, wins] of Object.entries(data.wins)) {
+            const total = wins.rx + wins.tx;
+            const antIdx = getAntennaIdx(ant, data.antennas);
+            html += `<div class="summary-card ${total > 0 ? 'has-wins' : ''}">
+                <div class="card-icon antenna-icon" data-antenna="${ant}" data-antenna-idx="${antIdx}">${ant}</div>
+                <div class="card-content">
+                    <div class="wins-bar">
+                        <span class="win-rx" style="width: ${wins.rx * 25}%">${wins.rx} RX</span>
+                        <span class="win-tx" style="width: ${wins.tx * 25}%">${wins.tx} TX</span>
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderSessionStats(data) {
+    const container = document.getElementById('session-stats');
+    if (!container) return;
+
+    // Count unique stations from map data
+    let rxStations = 0;
+    let txStations = 0;
+    let uniqueCallsigns = new Set();
+
+    if (mapData && mapData.rx_stations) {
+        mapData.rx_stations.forEach(s => {
+            uniqueCallsigns.add(s.call);
+        });
+        rxStations = mapData.rx_stations.length;
+    }
+
+    if (mapData && mapData.tx_stations) {
+        mapData.tx_stations.forEach(s => {
+            uniqueCallsigns.add(s.call);
+        });
+        txStations = mapData.tx_stations.length;
+    }
+
+    let html = '';
+
+    if (rxStations > 0) {
+        html += '<span class="info-item">';
+        html += '<span class="info-label">RX Spots</span>';
+        html += '<span class="info-value">' + rxStations + '</span>';
+        html += '</span>';
+    }
+
+    if (txStations > 0) {
+        html += '<span class="info-item">';
+        html += '<span class="info-label">TX Spots</span>';
+        html += '<span class="info-value">' + txStations + '</span>';
+        html += '</span>';
+    }
+
+    if (uniqueCallsigns.size > 0) {
+        html += '<span class="info-item">';
+        html += '<span class="info-label">Unique Calls</span>';
+        html += '<span class="info-value">' + uniqueCallsigns.size + '</span>';
+        html += '</span>';
+    }
+
+    // Count bands active
+    const bands = new Set();
+    if (mapData && mapData.rx_stations) {
+        mapData.rx_stations.forEach(s => bands.add(s.band));
+    }
+    if (bands.size > 0) {
+        html += '<span class="info-item">';
+        html += '<span class="info-label">Bands</span>';
+        html += '<span class="info-value info-value-sm">' + [...bands].sort((a, b) => {
+            const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+            return (order[a]||99) - (order[b]||99);
+        }).join(', ') + '</span>';
+        html += '</span>';
+    }
+
+    container.innerHTML = html;
+}
+
+function renderRXCharts(data) {
+    const container = document.getElementById('rx-charts');
+    if (!Object.keys(data.rxByBand).length) {
+        container.innerHTML = '<p>No RX data available</p>';
+        return;
+    }
+
+    let html = '';
+    const bands = Object.keys(data.rxByBand).sort((a, b) => {
+        const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+        return (order[a]||99) - (order[b]||99);
+    });
+
+    for (const band of bands) {
+        const bandData = data.rxByBand[band];
+        html += `<div class="band-chart">
+            <div class="band-label">${band}</div>
+            <div class="bar-chart">`;
+
+        // Find range for scaling
+        const values = Object.values(bandData).map(d => d.snr);
+        const minVal = Math.min(...values, -20);
+        const maxVal = Math.max(...values, 0);
+        const range = maxVal - minVal || 1;
+
+        for (const [ant, d] of Object.entries(bandData)) {
+            const width = Math.max(5, ((d.snr - minVal) / range) * 100);
+            const colorClass = d.isBaseline ? 'baseline' : (parseFloat(d.delta) > 0 ? 'better' : 'worse');
+            const antIdx = getAntennaIdx(ant, data.antennas);
+
+            html += `<div class="bar-row">
+                <span class="bar-antenna" data-antenna="${ant}" data-antenna-idx="${antIdx}">${ant}</span>
+                <div class="bar-container">
+                    <div class="bar ${colorClass}" style="width: ${width}%">
+                        <span class="bar-value">${d.snr.toFixed(1)} dB</span>
+                    </div>
+                </div>
+                <span class="bar-delta ${colorClass}">${d.isBaseline ? '(baseline)' : d.delta + ' dB'}</span>
+            </div>`;
+        }
+
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderTXCharts(data) {
+    const container = document.getElementById('tx-charts');
+    if (!Object.keys(data.txByBand).length) {
+        container.innerHTML = '<p>No TX data available</p>';
+        return;
+    }
+
+    let html = '';
+    const bands = Object.keys(data.txByBand).sort((a, b) => {
+        const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+        return (order[a]||99) - (order[b]||99);
+    });
+
+    for (const band of bands) {
+        if (band === '0.000MHz') continue; // Skip invalid
+        const bandData = data.txByBand[band];
+        html += `<div class="band-chart">
+            <div class="band-label">${band}</div>
+            <div class="bar-chart">`;
+
+        // Find max for scaling
+        const maxReach = Math.max(...Object.values(bandData).map(d => d.reach), 1);
+
+        for (const [ant, d] of Object.entries(bandData)) {
+            const width = (d.reach / maxReach) * 100;
+            const colorClass = d.isBaseline ? 'baseline' : (parseInt(d.delta) > 0 ? 'better' : 'worse');
+            const antIdx = getAntennaIdx(ant, data.antennas);
+
+            html += `<div class="bar-row">
+                <span class="bar-antenna" data-antenna="${ant}" data-antenna-idx="${antIdx}">${ant}</span>
+                <div class="bar-container">
+                    <div class="bar ${colorClass}" style="width: ${width}%">
+                        <span class="bar-value">${d.reach} stations</span>
+                    </div>
+                </div>
+                <span class="bar-delta ${colorClass}">${d.isBaseline ? '(baseline)' : d.delta}</span>
+            </div>`;
+        }
+
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderDistanceCharts(data) {
+    const container = document.getElementById('dist-charts');
+
+    // Combine RX and TX distance data
+    const hasDist = Object.keys(data.rxDistByBand).length > 0 || Object.keys(data.txDistByBand).length > 0;
+    if (!hasDist) {
+        container.innerHTML = '<p>No distance data available</p>';
+        return;
+    }
+
+    let html = '';
+
+    // Get all bands
+    const allBands = new Set([...Object.keys(data.rxDistByBand), ...Object.keys(data.txDistByBand)]);
+    const bands = [...allBands].sort((a, b) => {
+        const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+        return (order[a]||99) - (order[b]||99);
+    });
+
+    for (const band of bands) {
+        const rxDist = data.rxDistByBand[band] || {};
+        const txDist = data.txDistByBand[band] || {};
+
+        // Combine antennas from both
+        const antennas = [...new Set([...Object.keys(rxDist), ...Object.keys(txDist)])];
+        if (antennas.length === 0) continue;
+
+        html += `<div class="band-chart">
+            <div class="band-label">${band}</div>
+            <div class="distance-table">
+                <table class="dist-table">
+                    <thead>
+                        <tr>
+                            <th>Antenna</th>
+                            <th>RX Avg</th>
+                            <th>RX Max</th>
+                            <th>TX Avg</th>
+                            <th>TX Max</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        // Find max values for highlighting
+        const rxAvgs = antennas.map(a => rxDist[a]?.avg || 0);
+        const txAvgs = antennas.map(a => txDist[a]?.avg || 0);
+        const maxRxAvg = Math.max(...rxAvgs);
+        const maxTxAvg = Math.max(...txAvgs);
+
+        for (const ant of antennas) {
+            const rx = rxDist[ant];
+            const tx = txDist[ant];
+            const antIdx = getAntennaIdx(ant, data.antennas);
+
+            const rxAvgClass = rx && rx.avg === maxRxAvg && rxAvgs.filter(v => v === maxRxAvg).length === 1 ? 'winner' : '';
+            const txAvgClass = tx && tx.avg === maxTxAvg && txAvgs.filter(v => v === maxTxAvg).length === 1 ? 'winner' : '';
+
+            html += `<tr>
+                <td class="ant-cell" data-antenna="${ant}" data-antenna-idx="${antIdx}">${ant}</td>
+                <td class="${rxAvgClass}">${rx ? rx.avg.toLocaleString() + ' km' : '-'}</td>
+                <td>${rx ? rx.max.toLocaleString() + ' km' : '-'}</td>
+                <td class="${txAvgClass}">${tx ? tx.avg.toLocaleString() + ' km' : '-'}</td>
+                <td>${tx ? tx.max.toLocaleString() + ' km' : '-'}</td>
+            </tr>`;
+        }
+
+        html += `</tbody></table></div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderTimeline() {
+    const container = document.getElementById('timeline-container');
+
+    if (!session || !session.intervals || session.intervals.length === 0) {
+        container.innerHTML = '<p class="no-data">No interval data available</p>';
+        return;
+    }
+
+    const intervals = session.intervals;
+    const sessionStart = new Date(session.session_start);
+    const sessionEnd = new Date(session.session_end);
+    const totalDuration = sessionEnd - sessionStart;
+
+    // Build antenna index map
+    const antennaMap = {};
+    let antIdx = 0;
+    intervals.forEach(interval => {
+        if (!(interval.antenna in antennaMap)) {
+            antennaMap[interval.antenna] = antIdx++;
+        }
+    });
+
+    // Infer bands for each interval from RX data timestamps
+    function inferBandsForInterval(intervalStart, intervalEnd) {
+        const bands = new Set();
+        if (mapData && mapData.rx_stations) {
+            // RX stations don't have timestamps in current format,
+            // but we can check which antenna they belong to
+        }
+        // Check if interval has band property directly
+        return bands;
+    }
+
+    // Get bands active during each interval by checking RX data
+    // Since RX data is grouped by antenna, we can match
+    function getBandsForAntenna(antenna) {
+        const bands = new Set();
+        if (mapData && mapData.rx_stations) {
+            mapData.rx_stations.forEach(s => {
+                if (s.antenna === antenna) {
+                    bands.add(s.band);
+                }
+            });
+        }
+        return [...bands].sort((a, b) => {
+            const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+            return (order[a]||99) - (order[b]||99);
+        });
+    }
+
+    // Calculate total time per antenna
+    const timePerAntenna = {};
+    intervals.forEach(interval => {
+        const start = new Date(interval.start);
+        const end = new Date(interval.end);
+        const duration = end - start;
+        if (!timePerAntenna[interval.antenna]) {
+            timePerAntenna[interval.antenna] = 0;
+        }
+        timePerAntenna[interval.antenna] += duration;
+    });
+
+    // Format duration
+    function formatDuration(ms) {
+        const mins = Math.floor(ms / 60000);
+        const secs = Math.floor((ms % 60000) / 1000);
+        if (mins >= 60) {
+            const hrs = Math.floor(mins / 60);
+            const remMins = mins % 60;
+            return hrs + 'h ' + remMins + 'm';
+        }
+        return mins + 'm ' + secs + 's';
+    }
+
+    function formatTime(date) {
+        return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    }
+
+    let html = '';
+
+    // Summary stats
+    html += '<div class="timeline-summary">';
+    html += '<div class="timeline-stat">';
+    html += '<span class="timeline-stat-label">Total Duration</span>';
+    html += '<span class="timeline-stat-value">' + formatDuration(totalDuration) + '</span>';
+    html += '</div>';
+    html += '<div class="timeline-stat">';
+    html += '<span class="timeline-stat-label">Intervals</span>';
+    html += '<span class="timeline-stat-value">' + intervals.length + '</span>';
+    html += '</div>';
+
+    // Time per antenna
+    for (const [ant, time] of Object.entries(timePerAntenna)) {
+        const idx = antennaMap[ant];
+        html += '<div class="timeline-stat">';
+        html += '<span class="timeline-stat-label">' + ant + ' time</span>';
+        html += '<span class="timeline-stat-value" style="color: ' + antennaColors[idx] + '">' + formatDuration(time) + '</span>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // Visual timeline bar
+    html += '<div class="timeline-visual">';
+    html += '<div class="timeline-bar">';
+
+    intervals.forEach((interval, i) => {
+        const start = new Date(interval.start);
+        const end = new Date(interval.end);
+        const duration = end - start;
+        const widthPct = (duration / totalDuration) * 100;
+        const idx = antennaMap[interval.antenna];
+        const band = interval.band || '';
+
+        let label = interval.antenna;
+        if (band) label += ' @ ' + band;
+
+        html += '<div class="timeline-segment" data-antenna-idx="' + idx + '" style="width: ' + widthPct + '%" ';
+        html += 'title="' + interval.antenna + (band ? ' @ ' + band : '') + '\n' + formatTime(start) + ' - ' + formatTime(end) + '\n' + formatDuration(duration) + '">';
+        if (widthPct > 8) {
+            html += '<span class="timeline-segment-label">' + label + '</span>';
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+    html += '<div class="timeline-times">';
+    html += '<span>' + formatTime(sessionStart) + ' UTC</span>';
+    html += '<span>' + formatTime(sessionEnd) + ' UTC</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // Interval cards
+    html += '<div class="timeline-intervals">';
+
+    intervals.forEach((interval, i) => {
+        const start = new Date(interval.start);
+        const end = new Date(interval.end);
+        const duration = end - start;
+        const idx = antennaMap[interval.antenna];
+        const band = interval.band || '';
+        const antennaBands = getBandsForAntenna(interval.antenna);
+
+        html += '<div class="interval-card" data-antenna-idx="' + idx + '">';
+        html += '<div class="interval-header">';
+        html += '<span class="interval-antenna" data-antenna-idx="' + idx + '">' + interval.antenna + '</span>';
+        if (band) {
+            html += '<span class="interval-band">' + band + '</span>';
+        }
+        html += '<span class="interval-number">#' + (i + 1) + '</span>';
+        html += '</div>';
+        html += '<div class="interval-time">' + formatTime(start) + ' - ' + formatTime(end) + ' UTC</div>';
+        html += '<div class="interval-duration">' + formatDuration(duration) + '</div>';
+        if (!band && antennaBands.length > 0) {
+            html += '<div class="interval-bands">Bands: ' + antennaBands.join(', ') + '</div>';
+        }
+        if (interval.description) {
+            html += '<div class="interval-description">' + interval.description + '</div>';
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+function renderCompass(data) {
+    const container = document.getElementById('compass-container');
+
+    // Parse bearing data from report
+    const bearingData = {};
+    const lines = reportText.split('\n');
+    let section = null;
+    let currentBand = null;
+    let currentDir = null;
+
+    for (const line of lines) {
+        if (line.includes('COMPARISON BY BEARING + BAND')) {
+            section = 'bearing';
+        } else if (line.includes('TX ANALYSIS')) {
+            section = null;
+        }
+
+        if (section !== 'bearing') continue;
+
+        const bandMatch = line.match(/^(\d+m):$/);
+        if (bandMatch) {
+            currentBand = bandMatch[1];
+            if (!bearingData[currentBand]) bearingData[currentBand] = {};
+            currentDir = null;
+        }
+
+        // "  N:" (new format without common count)
+        const dirMatch = line.match(/^\s+(N|NE|E|SE|S|SW|W|NW):$/);
+        if (dirMatch && currentBand) {
+            currentDir = dirMatch[1];
+            bearingData[currentBand][currentDir] = {antennas: {}};
+        }
+
+        // "      80ef1: 6 stns, avg -9.4 dB, avg 5000 km, max 10000 km (baseline)" (with distance)
+        // or "      80ef1: 6 stns, avg -9.4 dB (baseline)" (without distance)
+        const dataMatch = line.match(/^\s{6}(\w+): (\d+) stns, avg ([\-\d.]+) dB(?:, avg (\d+) km, max (\d+) km)?\s*(.*)/);
+        if (dataMatch && currentBand && currentDir && section === 'bearing') {
+            const [_, ant, count, avg, avgDist, maxDist, extra] = dataMatch;
+            const delta = extra.match(/([\+\-][\d.]+)/)?.[1] || '0';
+            bearingData[currentBand][currentDir].antennas[ant] = {
+                count: parseInt(count),
+                avg: parseFloat(avg),
+                avgDist: avgDist ? parseInt(avgDist) : null,
+                maxDist: maxDist ? parseInt(maxDist) : null,
+                delta: parseFloat(delta),
+                isBaseline: extra.includes('baseline'),
+                isWinner: extra.includes('*')
+            };
+        }
+
+        // "      80ef1: 0 stns" (no data case)
+        const zeroMatch = line.match(/^\s{6}(\w+): 0 stns$/);
+        if (zeroMatch && currentBand && currentDir && section === 'bearing') {
+            bearingData[currentBand][currentDir].antennas[zeroMatch[1]] = {
+                count: 0,
+                avg: null,
+                delta: 0,
+                isBaseline: false
+            };
+        }
+    }
+
+    if (!Object.keys(bearingData).length) {
+        container.innerHTML = '<p>No bearing data available</p>';
+        return;
+    }
+
+    // Create a simple table for each band
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+    let html = '<div class="bearing-tables">';
+
+    for (const [band, dirs] of Object.entries(bearingData)) {
+        html += `<div class="bearing-table-card">
+            <div class="bearing-band">${band}</div>
+            <table class="bearing-table">
+                <thead>
+                    <tr>
+                        <th>Dir</th>`;
+
+        // Add column headers for each antenna
+        for (const ant of data.antennas) {
+            const antIdx = getAntennaIdx(ant, data.antennas);
+            html += `<th data-antenna-idx="${antIdx}">${ant}</th>`;
+        }
+        html += `<th>Winner</th></tr></thead><tbody>`;
+
+        for (const dir of directions) {
+            const dirData = dirs[dir];
+            if (!dirData || Object.keys(dirData.antennas).length === 0) continue;
+
+            // Find winner by station count (who heard more), then by SNR if tied
+            const ants = Object.entries(dirData.antennas).filter(([_, d]) => d.count > 0);
+            if (ants.length === 0) continue;
+
+            let winner = null;
+            let winnerIdx = 0;
+            let advantage = '';
+
+            if (ants.length === 1) {
+                // Only one antenna heard anything in this direction
+                winner = ants[0][0];
+                winnerIdx = getAntennaIdx(winner, data.antennas);
+                advantage = 'only';
+            } else {
+                // Compare by count first, then SNR
+                const sorted = ants.sort((a, b) => {
+                    if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+                    return b[1].avg - a[1].avg;
+                });
+                const best = sorted[0];
+                const second = sorted[1];
+                winner = best[0];
+                winnerIdx = getAntennaIdx(winner, data.antennas);
+
+                if (best[1].count > second[1].count) {
+                    advantage = `+${best[1].count - second[1].count} stns`;
+                } else {
+                    const diff = best[1].avg - second[1].avg;
+                    advantage = diff > 1 ? `+${diff.toFixed(1)} dB` : 'tie';
+                    if (diff <= 1) winner = null;
+                }
+            }
+
+            const rowClass = winner ? 'winner-idx-' + winnerIdx : 'tie';
+
+            html += `<tr class="${rowClass}">
+                <td class="dir-cell">${dir}</td>`;
+
+            // Show count, SNR, and distance for each antenna
+            for (const ant of data.antennas) {
+                const antData = dirData.antennas[ant];
+                const antIdx = getAntennaIdx(ant, data.antennas);
+                if (antData && antData.count > 0) {
+                    let cellContent = `${antData.count} @ ${antData.avg.toFixed(0)}dB`;
+                    if (antData.maxDist) {
+                        cellContent += `<br><span class="dist-info">${antData.avgDist.toLocaleString()}/${antData.maxDist.toLocaleString()} km</span>`;
+                    }
+                    html += `<td data-antenna-idx="${antIdx}">${cellContent}</td>`;
+                } else {
+                    html += `<td class="no-data">-</td>`;
+                }
+            }
+
+            html += `<td class="winner-cell">`;
+            if (winner) {
+                html += `<span class="winner-name" data-antenna="${winner}" data-antenna-idx="${winnerIdx}">${winner}</span>
+                    <span class="advantage">${advantage}</span>`;
+            } else {
+                html += `<span class="tie-text">tie</span>`;
+            }
+            html += `</td></tr>`;
+        }
+
+        html += `</tbody></table></div>`;
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function toggleReport() {
+    const content = document.getElementById('report-content');
+    const toggle = document.getElementById('report-toggle');
+    if (!content || !toggle) return;
+    if (content.classList.contains('report-collapsed')) {
+        content.classList.remove('report-collapsed');
+        toggle.textContent = '▲';
+    } else {
+        content.classList.add('report-collapsed');
+        toggle.textContent = '▼';
+    }
+}
+
+function toggleMethodology() {
+    const content = document.getElementById('methodology-content');
+    const toggle = document.getElementById('methodology-toggle');
+    if (!content || !toggle) return;
+    if (content.classList.contains('report-collapsed')) {
+        content.classList.remove('report-collapsed');
+        toggle.textContent = '▲';
+    } else {
+        content.classList.add('report-collapsed');
+        toggle.textContent = '▼';
+    }
+}
+
+
+// Parse bearing data for direction chart (shared between RX and TX)
+function parseBearingData(type = 'rx') {
+    const bearingData = {};
+    const lines = reportText.split('\n');
+    let section = null;
+    let currentBand = null;
+    let currentDir = null;
+
+    const sectionStart = type === 'rx' ? 'COMPARISON BY BEARING + BAND' : 'TX BY BEARING';
+    const sectionEnd = type === 'rx' ? 'TX ANALYSIS' : 'SUMMARY';
+
+    for (const line of lines) {
+        if (line.includes(sectionStart)) {
+            section = 'bearing';
+        } else if (line.includes(sectionEnd)) {
+            section = null;
+        }
+
+        if (section !== 'bearing') continue;
+
+        const bandMatch = line.match(/^(\d+m):$/);
+        if (bandMatch) {
+            currentBand = bandMatch[1];
+            if (!bearingData[currentBand]) bearingData[currentBand] = {};
+            currentDir = null;
+        }
+
+        const dirMatch = line.match(/^\s+(N|NE|E|SE|S|SW|W|NW):$/);
+        if (dirMatch && currentBand) {
+            currentDir = dirMatch[1];
+            bearingData[currentBand][currentDir] = {antennas: {}};
+        }
+
+        const dataMatch = line.match(/^\s{6}(\w+): (\d+) stns, avg ([\-\d.]+) dB(?:, avg (\d+) km, max (\d+) km)?\s*(.*)/);
+        if (dataMatch && currentBand && currentDir && section === 'bearing') {
+            const [_, ant, count, avg, avgDist, maxDist, extra] = dataMatch;
+            bearingData[currentBand][currentDir].antennas[ant] = {
+                count: parseInt(count),
+                avg: parseFloat(avg),
+                avgDist: avgDist ? parseInt(avgDist) : null,
+                maxDist: maxDist ? parseInt(maxDist) : null,
+                isBaseline: extra.includes('baseline'),
+                isWinner: extra.includes('*')
+            };
+        }
+
+        const zeroMatch = line.match(/^\s{6}(\w+): 0 stns$/);
+        if (zeroMatch && currentBand && currentDir && section === 'bearing') {
+            bearingData[currentBand][currentDir].antennas[zeroMatch[1]] = {
+                count: 0,
+                avg: null
+            };
+        }
+    }
+    return bearingData;
+}
+
+// Render directional comparison chart
+function renderDirectionChart(data, type = 'rx') {
+    const container = document.getElementById('direction-comparison-chart');
+    const insightsContainer = document.getElementById('direction-insights');
+    const bearingData = parseBearingData(type);
+
+    if (!Object.keys(bearingData).length) {
+        container.innerHTML = '<p>No bearing data available</p>';
+        insightsContainer.innerHTML = '';
+        return;
+    }
+
+    const antennas = data.antennas;
+    if (antennas.length < 2) {
+        container.innerHTML = '<p>Need at least 2 antennas to compare</p>';
+        return;
+    }
+
+    const ant1 = antennas[0];
+    const ant2 = antennas[1];
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const bands = Object.keys(bearingData).sort((a, b) => {
+        const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+        return (order[a]||99) - (order[b]||99);
+    });
+
+    // Collect comparison data
+    const comparisons = [];
+    for (const band of bands) {
+        for (const dir of directions) {
+            const dirData = bearingData[band]?.[dir];
+            if (!dirData) continue;
+
+            const a1 = dirData.antennas[ant1];
+            const a2 = dirData.antennas[ant2];
+
+            // Both antennas need data to compare
+            if (!a1 || !a2) continue;
+
+            // At least one needs stations
+            if (a1.count === 0 && a2.count === 0) continue;
+
+            let advantage = 0;
+            let winner = null;
+            let reason = '';
+
+            if (a1.count > 0 && a2.count === 0) {
+                winner = ant1;
+                advantage = 10; // Arbitrary large value for "only one heard"
+                reason = 'exclusive';
+            } else if (a2.count > 0 && a1.count === 0) {
+                winner = ant2;
+                advantage = 10;
+                reason = 'exclusive';
+            } else if (a1.avg !== null && a2.avg !== null) {
+                advantage = a1.avg - a2.avg;
+                winner = advantage > 0 ? ant1 : (advantage < 0 ? ant2 : null);
+                reason = 'snr';
+            }
+
+            comparisons.push({
+                band, dir, ant1Data: a1, ant2Data: a2,
+                advantage, winner, reason
+            });
+        }
+    }
+
+    // SVG chart - horizontal bars showing advantage
+    const rowHeight = 28;
+    const labelWidth = 80;
+    const barWidth = 200;
+    const svgWidth = labelWidth + barWidth * 2 + 60;
+    const svgHeight = comparisons.length * rowHeight + 40;
+    const midX = labelWidth + barWidth;
+
+    let svg = `<svg width="${svgWidth}" height="${svgHeight}" class="direction-chart-svg">`;
+
+    // Header
+    svg += `<text x="${labelWidth + barWidth/2}" y="15" text-anchor="middle" fill="#4fc3f7" font-size="12">${ant1} better</text>`;
+    svg += `<text x="${labelWidth + barWidth + barWidth/2}" y="15" text-anchor="middle" fill="#ff9800" font-size="12">${ant2} better</text>`;
+    svg += `<line x1="${midX}" y1="20" x2="${midX}" y2="${svgHeight}" stroke="#555" stroke-width="2"/>`;
+
+    // Scale: 10dB = full bar width
+    const scale = barWidth / 10;
+
+    comparisons.forEach((c, i) => {
+        const y = 30 + i * rowHeight;
+        const label = `${c.band} ${c.dir}`;
+
+        svg += `<text x="${labelWidth - 5}" y="${y + 16}" text-anchor="end" fill="#aaa" font-size="11">${label}</text>`;
+
+        // Background row
+        svg += `<rect x="${labelWidth}" y="${y + 2}" width="${barWidth * 2}" height="${rowHeight - 4}" fill="#1a1a2e" rx="2"/>`;
+
+        if (c.advantage !== 0) {
+            const barLen = Math.min(Math.abs(c.advantage) * scale, barWidth - 5);
+            const color = c.winner === ant1 ? '#4fc3f7' : '#ff9800';
+            const opacity = c.reason === 'exclusive' ? '0.5' : '0.8';
+
+            if (c.winner === ant1) {
+                // Bar extends left from center
+                svg += `<rect x="${midX - barLen}" y="${y + 5}" width="${barLen}" height="${rowHeight - 10}" fill="${color}" opacity="${opacity}" rx="2"/>`;
+            } else {
+                // Bar extends right from center
+                svg += `<rect x="${midX}" y="${y + 5}" width="${barLen}" height="${rowHeight - 10}" fill="${color}" opacity="${opacity}" rx="2"/>`;
+            }
+
+            // Label showing dB difference
+            const dbLabel = c.reason === 'exclusive' ? 'only' : `${Math.abs(c.advantage).toFixed(1)}dB`;
+            const labelX = c.winner === ant1 ? midX - barLen - 5 : midX + barLen + 5;
+            const anchor = c.winner === ant1 ? 'end' : 'start';
+            svg += `<text x="${labelX}" y="${y + 16}" text-anchor="${anchor}" fill="#888" font-size="10">${dbLabel}</text>`;
+        }
+    });
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+
+    // Generate insights
+    generateDirectionInsights(comparisons, ant1, ant2, type, insightsContainer);
+}
+
+function generateDirectionInsights(comparisons, ant1, ant2, type, container) {
+    const insights = [];
+
+    // Count wins per antenna
+    const ant1Wins = comparisons.filter(c => c.winner === ant1);
+    const ant2Wins = comparisons.filter(c => c.winner === ant2);
+
+    // Group by direction
+    const dirWins = {};
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    for (const dir of directions) {
+        const dirComps = comparisons.filter(c => c.dir === dir);
+        const a1w = dirComps.filter(c => c.winner === ant1).length;
+        const a2w = dirComps.filter(c => c.winner === ant2).length;
+        if (a1w > 0 || a2w > 0) {
+            dirWins[dir] = { ant1: a1w, ant2: a2w, total: dirComps.length };
+        }
+    }
+
+    // Group by band
+    const bandWins = {};
+    const bands = [...new Set(comparisons.map(c => c.band))];
+    for (const band of bands) {
+        const bandComps = comparisons.filter(c => c.band === band);
+        const a1w = bandComps.filter(c => c.winner === ant1).length;
+        const a2w = bandComps.filter(c => c.winner === ant2).length;
+        bandWins[band] = { ant1: a1w, ant2: a2w, total: bandComps.length };
+    }
+
+    // Find dominant directions for each antenna
+    const ant1StrongDirs = Object.entries(dirWins)
+        .filter(([_, w]) => w.ant1 > w.ant2)
+        .map(([d]) => d);
+    const ant2StrongDirs = Object.entries(dirWins)
+        .filter(([_, w]) => w.ant2 > w.ant1)
+        .map(([d]) => d);
+
+    // Find dominant bands for each antenna
+    const ant1StrongBands = Object.entries(bandWins)
+        .filter(([_, w]) => w.ant1 > w.ant2)
+        .map(([b]) => b);
+    const ant2StrongBands = Object.entries(bandWins)
+        .filter(([_, w]) => w.ant2 > w.ant1)
+        .map(([b]) => b);
+
+    // Calculate average advantage when winning
+    const ant1AvgAdv = ant1Wins.length > 0
+        ? ant1Wins.filter(c => c.reason === 'snr').reduce((s, c) => s + c.advantage, 0) / ant1Wins.filter(c => c.reason === 'snr').length
+        : 0;
+    const ant2AvgAdv = ant2Wins.length > 0
+        ? ant2Wins.filter(c => c.reason === 'snr').reduce((s, c) => s + Math.abs(c.advantage), 0) / ant2Wins.filter(c => c.reason === 'snr').length
+        : 0;
+
+    // Build insights HTML
+    let html = '<div class="insights-grid">';
+
+    // Overall score
+    html += `<div class="insight-box">
+        <div class="insight-title">Overall ${type.toUpperCase()} Score</div>
+        <div class="insight-score">
+            <span class="score-ant1">${ant1}: ${ant1Wins.length}</span>
+            <span class="score-vs">vs</span>
+            <span class="score-ant2">${ant2}: ${ant2Wins.length}</span>
+        </div>
+    </div>`;
+
+    // Antenna 1 strengths
+    if (ant1StrongDirs.length > 0 || ant1StrongBands.length > 0) {
+        html += `<div class="insight-box insight-ant1">
+            <div class="insight-title">${ant1} Strengths</div>
+            <div class="insight-content">`;
+        if (ant1StrongDirs.length > 0) {
+            html += `<div>Directions: <strong>${ant1StrongDirs.join(', ')}</strong></div>`;
+        }
+        if (ant1StrongBands.length > 0) {
+            html += `<div>Bands: <strong>${ant1StrongBands.join(', ')}</strong></div>`;
+        }
+        if (ant1AvgAdv > 0) {
+            html += `<div>Avg advantage: <strong>${ant1AvgAdv.toFixed(1)} dB</strong></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Antenna 2 strengths
+    if (ant2StrongDirs.length > 0 || ant2StrongBands.length > 0) {
+        html += `<div class="insight-box insight-ant2">
+            <div class="insight-title">${ant2} Strengths</div>
+            <div class="insight-content">`;
+        if (ant2StrongDirs.length > 0) {
+            html += `<div>Directions: <strong>${ant2StrongDirs.join(', ')}</strong></div>`;
+        }
+        if (ant2StrongBands.length > 0) {
+            html += `<div>Bands: <strong>${ant2StrongBands.join(', ')}</strong></div>`;
+        }
+        if (ant2AvgAdv > 0) {
+            html += `<div>Avg advantage: <strong>${ant2AvgAdv.toFixed(1)} dB</strong></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Pattern analysis - try to identify characteristics
+    html += `<div class="insight-box insight-pattern">
+        <div class="insight-title">Pattern Analysis</div>
+        <div class="insight-content">`;
+
+    // Check for low-band vs high-band pattern
+    const lowBands = ['40m', '30m', '20m'];
+    const highBands = ['17m', '15m', '12m', '10m'];
+    const ant1LowWins = comparisons.filter(c => c.winner === ant1 && lowBands.includes(c.band)).length;
+    const ant1HighWins = comparisons.filter(c => c.winner === ant1 && highBands.includes(c.band)).length;
+    const ant2LowWins = comparisons.filter(c => c.winner === ant2 && lowBands.includes(c.band)).length;
+    const ant2HighWins = comparisons.filter(c => c.winner === ant2 && highBands.includes(c.band)).length;
+
+    if (ant1LowWins > ant2LowWins && ant2HighWins > ant1HighWins) {
+        html += `<div>${ant1} favors lower bands, ${ant2} favors higher bands</div>`;
+    } else if (ant2LowWins > ant1LowWins && ant1HighWins > ant2HighWins) {
+        html += `<div>${ant2} favors lower bands, ${ant1} favors higher bands</div>`;
+    }
+
+    // Check for directional pattern (N/S vs E/W)
+    const ewDirs = ['E', 'W', 'NE', 'NW', 'SE', 'SW'];
+    const nsDirs = ['N', 'S'];
+    const ant1EW = comparisons.filter(c => c.winner === ant1 && ewDirs.includes(c.dir)).length;
+    const ant1NS = comparisons.filter(c => c.winner === ant1 && nsDirs.includes(c.dir)).length;
+    const ant2EW = comparisons.filter(c => c.winner === ant2 && ewDirs.includes(c.dir)).length;
+    const ant2NS = comparisons.filter(c => c.winner === ant2 && nsDirs.includes(c.dir)).length;
+
+    if (ant1EW > ant2EW * 1.5 && ant2NS >= ant1NS) {
+        html += `<div>${ant1} stronger E-W, ${ant2} holds N-S</div>`;
+    } else if (ant2EW > ant1EW * 1.5 && ant1NS >= ant2NS) {
+        html += `<div>${ant2} stronger E-W, ${ant1} holds N-S</div>`;
+    }
+
+    // Check for DX vs local pattern (if distance data available)
+    const ant1DX = comparisons.filter(c => c.winner === ant1 && c.ant1Data?.maxDist > 10000).length;
+    const ant2DX = comparisons.filter(c => c.winner === ant2 && c.ant2Data?.maxDist > 10000).length;
+    if (ant1DX > ant2DX + 2) {
+        html += `<div>${ant1} better for DX (>10k km)</div>`;
+    } else if (ant2DX > ant1DX + 2) {
+        html += `<div>${ant2} better for DX (>10k km)</div>`;
+    }
+
+    if (html.endsWith('<div class="insight-content">')) {
+        html += '<div>No clear patterns detected - antennas perform similarly</div>';
+    }
+
+    html += `</div></div>`;
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+// Calculate duration
+if (session.session_start && session.session_end) {
+    const start = new Date(session.session_start);
+    const end = new Date(session.session_end);
+    const mins = Math.round((end - start) / 60000);
+    document.getElementById('duration').textContent = mins + ' min';
+}
+
+// Parse and render
+// Antenna colors for map
+const antennaColors = ['#4fc3f7', '#ff9800', '#9c27b0', '#4caf50'];
+
+// Simplified continent outlines (lon, lat pairs) - rough shapes for visual reference
+// Each array is a separate polygon/coastline segment
+const continentOutlines = [
+    // North America (simplified)
+    [[-168,66],[-168,53],[-141,60],[-131,55],[-125,49],[-125,33],[-117,32],[-106,31],[-104,29],[-97,26],[-97,21],[-87,21],[-81,25],[-80,32],[-76,35],[-75,40],[-69,41],[-67,45],[-67,47],[-60,47],[-52,47],[-55,52],[-62,58],[-73,61],[-83,62],[-95,61],[-110,69],[-128,72],[-141,70],[-156,72],[-168,66]],
+    // South America (simplified)
+    [[-81,8],[-77,9],[-72,12],[-62,11],[-52,5],[-35,5],[-35,-7],[-38,-15],[-42,-23],[-48,-28],[-54,-34],[-62,-39],[-65,-47],[-67,-56],[-73,-53],[-76,-46],[-75,-38],[-71,-30],[-70,-18],[-76,-5],[-80,0],[-81,8]],
+    // Europe (simplified)
+    [[-10,36],[-6,37],[2,37],[5,44],[10,44],[15,40],[20,40],[27,42],[29,46],[22,55],[14,55],[10,60],[5,63],[10,70],[25,71],[31,70],[42,68],[42,56],[28,46],[30,41],[23,35],[20,35],[10,38],[0,35],[-10,36]],
+    // Africa (simplified)
+    [[-17,15],[-17,21],[0,22],[10,32],[12,24],[33,32],[40,29],[43,12],[51,12],[51,-1],[40,-11],[35,-22],[27,-34],[18,-35],[12,-25],[8,-5],[-5,5],[-8,5],[-17,15]],
+    // Asia (simplified)
+    [[42,68],[60,70],[95,77],[110,77],[180,66],[180,60],[170,60],[162,59],[147,44],[130,43],[120,33],[110,22],[102,22],[100,14],[95,6],[80,8],[77,23],[68,24],[62,25],[50,30],[40,29],[33,32],[36,37],[27,42],[42,56],[42,68]],
+    // Asia continued (below) - southeast
+    [[95,6],[100,1],[104,-6],[115,-8],[130,-8],[141,-6],[141,-10],[131,-12],[115,-11],[106,0],[100,6],[95,6]],
+    // Australia (simplified)
+    [[113,-22],[114,-26],[116,-35],[130,-32],[138,-34],[141,-39],[147,-39],[154,-28],[153,-20],[145,-15],[142,-11],[136,-12],[129,-15],[122,-18],[114,-20],[113,-22]],
+    // Japan (very simplified)
+    [[129,33],[131,34],[132,35],[135,35],[138,36],[140,40],[141,43],[145,44],[145,42],[141,39],[140,36],[137,35],[130,32],[129,33]],
+    // Greenland (simplified)
+    [[-73,76],[-60,76],[-42,84],[-27,84],[-20,77],[-22,70],[-30,68],[-42,60],[-52,60],[-55,65],[-52,70],[-60,75],[-73,76]],
+    // UK/Ireland
+    [[-10,51],[-5,50],[2,51],[2,55],[-2,57],[-5,58],[-7,58],[-10,54],[-10,51]],
+    // New Zealand (very simplified)
+    [[166,-47],[168,-44],[175,-41],[178,-37],[178,-34],[174,-35],[172,-40],[166,-47]]
+];
+
+// Azimuthal equidistant projection from center point
+function azimuthalProject(lat, lon, centerLat, centerLon, maxRadius, maxDistKm) {
+    const R = 6371; // Earth radius km
+    const lat1 = centerLat * Math.PI / 180;
+    const lat2 = lat * Math.PI / 180;
+    const dLon = (lon - centerLon) * Math.PI / 180;
+
+    // Calculate distance using spherical law of cosines
+    const c = Math.acos(Math.sin(lat1) * Math.sin(lat2) +
+                        Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLon));
+    const dist = R * c;
+
+    // Calculate bearing
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = Math.atan2(y, x);
+
+    // Convert to screen coordinates
+    const r = (dist / maxDistKm) * maxRadius;
+    const screenX = r * Math.sin(bearing);
+    const screenY = -r * Math.cos(bearing); // negative because screen Y is inverted
+
+    return { x: screenX, y: screenY, dist: dist };
+}
+
+function renderAzimuthalMap(mapData, filterBand = 'all', filterType = 'rx') {
+    const container = document.getElementById('azimuthal-map');
+    const legendContainer = document.getElementById('map-legend');
+
+    if (!mapData || !mapData.rx_stations) {
+        container.innerHTML = '<p>No map data available. Re-run analysis to generate.</p>';
+        return;
+    }
+
+    const stations = filterType === 'rx' ? mapData.rx_stations : mapData.tx_stations;
+    if (!stations || stations.length === 0) {
+        container.innerHTML = `<p>No ${filterType.toUpperCase()} station data available.</p>`;
+        return;
+    }
+
+    // Filter by band
+    const filtered = filterBand === 'all' ? stations : stations.filter(s => s.band === filterBand);
+    if (filtered.length === 0) {
+        container.innerHTML = '<p>No stations for selected filter.</p>';
+        return;
+    }
+
+    // SVG dimensions (larger map for better visibility)
+    const size = 700;
+    const cx = size / 2;
+    const cy = size / 2;
+    const maxRadius = size / 2 - 50;
+
+    // Fixed scale: half Earth circumference (~20,000 km) at edge
+    // This keeps the map stable regardless of which band/data is displayed
+    const maxDist = 20000;
+    const distScale = maxRadius / maxDist;
+
+    // SNR range for sizing dots
+    const snrs = filtered.map(s => s.snr);
+    const minSnr = Math.min(...snrs, -20);
+    const maxSnr = Math.max(...snrs, 0);
+
+    let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
+
+    // Background
+    svg += `<circle cx="${cx}" cy="${cy}" r="${maxRadius}" fill="#1a1a2e" stroke="#333"/>`;
+
+    // Draw continent outlines (before rings so they're behind everything)
+    const centerLat = mapData.qth?.lat || 38.5;  // Default to roughly California if missing
+    const centerLon = mapData.qth?.lon || -121;
+    for (const outline of continentOutlines) {
+        let pathParts = [];
+        let lastInBounds = false;
+        for (let i = 0; i < outline.length; i++) {
+            const [lon, lat] = outline[i];
+            const proj = azimuthalProject(lat, lon, centerLat, centerLon, maxRadius, maxDist);
+            const px = cx + proj.x;
+            const py = cy + proj.y;
+            // Only draw if within map bounds (with small margin)
+            const inBounds = proj.dist <= maxDist * 1.05;
+            if (inBounds) {
+                if (pathParts.length === 0 || !lastInBounds) {
+                    pathParts.push(`M${px.toFixed(1)},${py.toFixed(1)}`);
+                } else {
+                    pathParts.push(`L${px.toFixed(1)},${py.toFixed(1)}`);
+                }
+            }
+            lastInBounds = inBounds;
+        }
+        if (pathParts.length > 2) {
+            // Subtle land masses with fill and thin strokes
+            svg += `<path d="${pathParts.join(' ')} Z" fill="#1e3a2d" fill-opacity="0.25" stroke="#3a5a4a" stroke-width="0.5" opacity="0.7"/>`;
+        }
+    }
+
+    // Distance rings (fixed set for stable map)
+    const rings = [2000, 5000, 10000, 15000, 20000];
+    for (const dist of rings) {
+        const r = dist * distScale;
+        if (r > 0 && r <= maxRadius) {
+            svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#333" stroke-dasharray="4,4"/>`;
+            svg += `<text x="${cx + 5}" y="${cy - r + 12}" fill="#555" font-size="10">${(dist/1000).toFixed(0)}k km</text>`;
+        }
+    }
+
+    // Direction labels
+    const dirs = [{a: 0, l: 'N'}, {a: 45, l: 'NE'}, {a: 90, l: 'E'}, {a: 135, l: 'SE'},
+                  {a: 180, l: 'S'}, {a: 225, l: 'SW'}, {a: 270, l: 'W'}, {a: 315, l: 'NW'}];
+    for (const d of dirs) {
+        const rad = (d.a - 90) * Math.PI / 180;
+        const lx = cx + (maxRadius + 20) * Math.cos(rad);
+        const ly = cy + (maxRadius + 20) * Math.sin(rad);
+        svg += `<text x="${lx}" y="${ly}" fill="#666" font-size="12" text-anchor="middle" dominant-baseline="middle">${d.l}</text>`;
+        // Direction line
+        const x2 = cx + maxRadius * Math.cos(rad);
+        const y2 = cy + maxRadius * Math.sin(rad);
+        svg += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#333" stroke-width="1"/>`;
+    }
+
+    // Center point (QTH)
+    svg += `<circle cx="${cx}" cy="${cy}" r="5" fill="#fff"/>`;
+    svg += `<text x="${cx}" y="${cy - 10}" fill="#fff" font-size="10" text-anchor="middle">${mapData.qth?.grid || 'QTH'}</text>`;
+
+    // Plot stations - group by antenna for layering
+    const antennas = mapData.antennas || [];
+    for (let antIdx = 0; antIdx < antennas.length; antIdx++) {
+        const ant = antennas[antIdx];
+        const antStations = filtered.filter(s => s.antenna === ant);
+        const color = antennaColors[antIdx % antennaColors.length];
+
+        for (const stn of antStations) {
+            // Convert bearing/distance to x,y (bearing 0=N, clockwise)
+            const rad = (stn.bearing - 90) * Math.PI / 180;
+            const r = Math.min(stn.distance_km * distScale, maxRadius);
+            const x = cx + r * Math.cos(rad);
+            const y = cy + r * Math.sin(rad);
+
+            // Size based on SNR (stronger = bigger)
+            const snrNorm = (stn.snr - minSnr) / (maxSnr - minSnr + 1);
+            const dotSize = 3 + snrNorm * 8;
+
+            // Different shapes per antenna - more transparent to show overlaps
+            const tooltip = `${stn.call} (${stn.grid})\n${stn.band} ${stn.snr}dB\n${stn.distance_km} km @ ${stn.bearing}°`;
+            if (antIdx === 0) {
+                svg += `<circle cx="${x}" cy="${y}" r="${dotSize}" fill="${color}" fill-opacity="0.4" stroke="${color}" stroke-opacity="0.8">
+                    <title>${tooltip}</title>
+                </circle>`;
+            } else if (antIdx === 1) {
+                // Square for second antenna
+                const s = dotSize * 1.5;
+                svg += `<rect x="${x - s/2}" y="${y - s/2}" width="${s}" height="${s}" fill="${color}" fill-opacity="0.4" stroke="${color}" stroke-opacity="0.8">
+                    <title>${tooltip}</title>
+                </rect>`;
+            } else {
+                // Triangle for third+
+                const s = dotSize * 1.5;
+                svg += `<polygon points="${x},${y-s} ${x-s},${y+s} ${x+s},${y+s}" fill="${color}" fill-opacity="0.4" stroke="${color}" stroke-opacity="0.8">
+                    <title>${tooltip}</title>
+                </polygon>`;
+            }
+        }
+    }
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+
+    // Render legend
+    let legend = '<div class="legend-items">';
+    for (let i = 0; i < antennas.length; i++) {
+        const color = antennaColors[i % antennaColors.length];
+        const shape = i === 0 ? '●' : (i === 1 ? '■' : '▲');
+        const count = filtered.filter(s => s.antenna === antennas[i]).length;
+        legend += `<span class="legend-item" style="color: ${color}">${shape} ${antennas[i]} (${count})</span>`;
+    }
+    legend += '</div>';
+    legend += '<div class="legend-note">Size = signal strength (bigger = stronger). Hover for details.</div>';
+    legendContainer.innerHTML = legend;
+}
+
+function getSelectedMapType() {
+    return document.querySelector('input[name="map-type"]:checked')?.value || 'rx';
+}
+
+function getSelectedMapBand() {
+    return document.querySelector('input[name="map-band"]:checked')?.value || 'all';
+}
+
+function initMapControls() {
+    if (!mapData || !mapData.rx_stations) return;
+
+    // Populate band radio buttons
+    const bandContainer = document.getElementById('map-band-radios');
+    const bands = [...new Set([...mapData.rx_stations.map(s => s.band), ...(mapData.tx_stations || []).map(s => s.band)])];
+    bands.sort((a, b) => {
+        const order = {'160m':1,'80m':2,'40m':3,'30m':4,'20m':5,'17m':6,'15m':7,'12m':8,'10m':9,'6m':10};
+        return (order[a]||99) - (order[b]||99);
+    });
+    for (const band of bands) {
+        bandContainer.innerHTML += `<label class="radio-label"><input type="radio" name="map-band" value="${band}"> ${band}</label>`;
+    }
+
+    // Event listeners for radio buttons
+    document.querySelectorAll('input[name="map-band"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            renderAzimuthalMap(mapData, getSelectedMapBand(), getSelectedMapType());
+        });
+    });
+    document.querySelectorAll('input[name="map-type"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            renderAzimuthalMap(mapData, getSelectedMapBand(), getSelectedMapType());
+        });
+    });
+}
+
+const data = parseReport(reportText);
+renderSummary(data);
+renderSessionStats(data);
+renderRXCharts(data);
+renderTXCharts(data);
+renderDistanceCharts(data);
+renderCompass(data);
+renderDirectionChart(data, 'rx');
+renderTimeline();
+initMapControls();
+renderAzimuthalMap(mapData);
+
+// Direction chart type selector (radio buttons)
+document.querySelectorAll('input[name="dir-chart-type"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        renderDirectionChart(data, e.target.value);
+    });
+});
+
+// Build standalone JS for export (includes all interactive functions)
+function getStandaloneJS() {
+    // Serialize current data
+    const mapDataJSON = JSON.stringify(mapData);
+    const reportTextEscaped = reportText.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    const dataJSON = JSON.stringify(data);
+    const continentsJSON = JSON.stringify(continentOutlines);
+
+    const parts = [];
+    parts.push('// Embedded data');
+    parts.push('const mapData = ' + mapDataJSON + ';');
+    parts.push('const reportText = `' + reportTextEscaped + '`;');
+    parts.push('const data = ' + dataJSON + ';');
+    parts.push('const session = ' + JSON.stringify(session) + ';');
+    parts.push("const antennaColors = ['#4fc3f7', '#ff9800', '#9c27b0', '#4caf50'];");
+    parts.push('const continentOutlines = ' + continentsJSON + ';');
+    parts.push('');
+    parts.push('// Azimuthal projection');
+    parts.push(azimuthalProject.toString());
+    parts.push('');
+    parts.push('// Render azimuthal map');
+    parts.push(renderAzimuthalMap.toString());
+    parts.push('');
+    parts.push('// Render timeline');
+    parts.push(renderTimeline.toString());
+    parts.push('');
+    parts.push('// Parse bearing data');
+    parts.push(parseBearingData.toString());
+    parts.push('');
+    parts.push('// Render direction chart');
+    parts.push(renderDirectionChart.toString());
+    parts.push('');
+    parts.push('// Generate insights');
+    parts.push(generateDirectionInsights.toString());
+    parts.push('');
+    parts.push('// Initialize controls');
+    parts.push('function initExportedControls() {');
+    parts.push('    document.querySelectorAll(\'input[name="map-band"]\').forEach(radio => {');
+    parts.push('        radio.addEventListener("change", () => {');
+    parts.push('            const type = document.querySelector(\'input[name="map-type"]:checked\')?.value || "rx";');
+    parts.push('            const band = document.querySelector(\'input[name="map-band"]:checked\')?.value || "all";');
+    parts.push('            renderAzimuthalMap(mapData, band, type);');
+    parts.push('        });');
+    parts.push('    });');
+    parts.push('    document.querySelectorAll(\'input[name="map-type"]\').forEach(radio => {');
+    parts.push('        radio.addEventListener("change", () => {');
+    parts.push('            const type = document.querySelector(\'input[name="map-type"]:checked\')?.value || "rx";');
+    parts.push('            const band = document.querySelector(\'input[name="map-band"]:checked\')?.value || "all";');
+    parts.push('            renderAzimuthalMap(mapData, band, type);');
+    parts.push('        });');
+    parts.push('    });');
+    parts.push('    document.querySelectorAll(\'input[name="dir-chart-type"]\').forEach(radio => {');
+    parts.push('        radio.addEventListener("change", (e) => {');
+    parts.push('            renderDirectionChart(data, e.target.value);');
+    parts.push('        });');
+    parts.push('    });');
+    parts.push('}');
+    parts.push('');
+    parts.push('// Initialize on load');
+    parts.push('initExportedControls();');
+    parts.push('renderTimeline();');
+
+    return parts.join('\n');
+}
+
+// Export to standalone HTML
+async function exportHTML() {
+    const btn = document.querySelector('.btn-export');
+    btn.textContent = 'Generating...';
+    btn.disabled = true;
+
+    try {
+        // Fetch current CSS
+        const cssResponse = await fetch('/static/style.css');
+        const css = await cssResponse.text();
+
+        // Get the rendered page content
+        const content = document.querySelector('.analysis-page').outerHTML;
+
+        // Get standalone JS
+        const js = getStandaloneJS();
+
+        // Build standalone HTML - using string concatenation to avoid Jinja2 conflicts
+        const html = '<!DOCTYPE html>\n' +
+'<html lang="en">\n' +
+'<head>\n' +
+'    <meta charset="UTF-8">\n' +
+'    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+'    <title>Antenna Analysis - ' + comparisonId + '</title>\n' +
+'    <style>\n' +
+'body {\n' +
+'    font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;\n' +
+'    background: #0d0d1a;\n' +
+'    color: #e0e0e0;\n' +
+'    margin: 0;\n' +
+'    padding: 1rem;\n' +
+'    line-height: 1.5;\n' +
+'}\n' +
+'a { color: #4fc3f7; }\n' +
+css + '\n' +
+'.export-buttons { display: none; }\n' +
+'    </style>\n' +
+'</head>\n' +
+'<body>\n' +
+content + '\n' +
+'<script>\n' +
+js + '\n' +
+'</' + 'script>\n' +
+'</body>\n' +
+'</html>';
+
+        // Download
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = comparisonId + '.html';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        btn.textContent = 'Export HTML';
+    } catch (err) {
+        alert('Export failed: ' + err.message);
+        btn.textContent = 'Export HTML';
+    }
+    btn.disabled = false;
+}
+
+// Publish to GitHub Gist
+async function publishGist() {
+    const btn = document.querySelector('.btn-publish');
+
+    // Check for stored token
+    let token = localStorage.getItem('github_gist_token');
+    if (!token) {
+        token = prompt('Enter GitHub Personal Access Token (with gist scope):\n\nCreate one at: https://github.com/settings/tokens/new?scopes=gist');
+        if (!token) return;
+        if (confirm('Remember this token for future use?')) {
+            localStorage.setItem('github_gist_token', token);
+        }
+    }
+
+    btn.textContent = 'Publishing...';
+    btn.disabled = true;
+
+    try {
+        // Fetch current CSS
+        const cssResponse = await fetch('/static/style.css');
+        const css = await cssResponse.text();
+
+        // Get the rendered page content
+        const content = document.querySelector('.analysis-page').outerHTML;
+
+        // Get standalone JS
+        const js = getStandaloneJS();
+
+        // Build standalone HTML - using string concatenation to avoid Jinja2 conflicts
+        const html = '<!DOCTYPE html>\n' +
+'<html lang="en">\n' +
+'<head>\n' +
+'    <meta charset="UTF-8">\n' +
+'    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+'    <title>Antenna Analysis - ' + comparisonId + '</title>\n' +
+'    <style>\n' +
+'body {\n' +
+'    font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;\n' +
+'    background: #0d0d1a;\n' +
+'    color: #e0e0e0;\n' +
+'    margin: 0;\n' +
+'    padding: 1rem;\n' +
+'    line-height: 1.5;\n' +
+'}\n' +
+'a { color: #4fc3f7; }\n' +
+css + '\n' +
+'.export-buttons { display: none; }\n' +
+'    </style>\n' +
+'</head>\n' +
+'<body>\n' +
+content + '\n' +
+'<script>\n' +
+js + '\n' +
+'</' + 'script>\n' +
+'</body>\n' +
+'</html>';
+
+        const response = await fetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                description: 'Antenna Comparison: ' + comparisonId,
+                public: true,
+                files: {
+                    'antenna-analysis.html': { content: html }
+                }
+            })
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('github_gist_token');
+                throw new Error('Invalid token - cleared from storage. Try again.');
+            }
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const gist = await response.json();
+        const gistId = gist.id;
+        const viewUrl = `https://gist.githack.com/${gist.owner.login}/${gistId}/raw/antenna-analysis.html`;
+
+        // Show result
+        const resultHtml = `
+            <div style="padding: 1rem; background: #1a1a2e; border-radius: 8px; margin: 1rem 0;">
+                <p><strong>Published!</strong></p>
+                <p>Gist: <a href="${gist.html_url}" target="_blank">${gist.html_url}</a></p>
+                <p>View: <a href="${viewUrl}" target="_blank">${viewUrl}</a></p>
+                <button onclick="navigator.clipboard.writeText('${viewUrl}'); this.textContent='Copied!'" class="btn">Copy View URL</button>
+            </div>
+        `;
+        btn.insertAdjacentHTML('afterend', resultHtml);
+        btn.textContent = 'Published!';
+
+    } catch (err) {
+        alert('Publish failed: ' + err.message);
+        btn.textContent = 'Publish to Gist';
+        btn.disabled = false;
+    }
+}
+
+// Initialize collapsible sections - must be at end after all other code
+document.getElementById('section-report').querySelector('h2').onclick = toggleReport;
+document.querySelector('.methodology h2').onclick = toggleMethodology;
+{% endraw %}
+</script>
+{% endblock %}

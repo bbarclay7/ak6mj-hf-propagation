@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}History - Antenna Comparison{% endblock %}
+
+{% block content %}
+<div class="comparisons-page">
+    <h1>Comparison History</h1>
+
+    {% if comparisons %}
+    <div class="card">
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Date/Time</th>
+                    <th>Antennas</th>
+                    <th>Grid</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comp in comparisons %}
+                <tr>
+                    <td>{{ comp.id.replace('comparison_', '') }}</td>
+                    <td>{{ comp.antennas | join(', ') if comp.antennas else '-' }}</td>
+                    <td>{{ comp.grid or '-' }}</td>
+                    <td>
+                        {% if comp.has_report %}
+                        <a href="{{ url_for('analysis_page', comparison_id=comp.id) }}" class="btn btn-small">View</a>
+                        {% else %}
+                        <span class="badge">No report</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <p>No comparisons yet. Run an experiment to create one.</p>
+        <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Start Experiment</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

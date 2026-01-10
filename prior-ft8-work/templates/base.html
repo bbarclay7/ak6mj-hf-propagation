@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Antenna Comparison{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="{{ url_for('index') }}">Antenna Compare</a>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}class="active"{% endif %}>Dashboard</a>
+            <a href="{{ url_for('experiment_page') }}" {% if request.endpoint == 'experiment_page' %}class="active"{% endif %}>Experiment</a>
+            <a href="{{ url_for('antennas_page') }}" {% if request.endpoint == 'antennas_page' %}class="active"{% endif %}>Antennas</a>
+            <a href="{{ url_for('comparisons_page') }}" {% if request.endpoint == 'comparisons_page' %}class="active"{% endif %}>History</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "ft8tools"
+version = "0.1.0"
+description = "FT8 tools for log management, antenna analysis, and WSJT-X automation"
+authors = ["AK6MJ"]
+readme = "CLAUDE.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+wsjtx-srv = "^0.6"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+ft8tool = "ft8tool:main"
