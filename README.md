@@ -47,11 +47,19 @@ make test
 Create `~/.config/wspr-beacon/config.yaml`:
 ```yaml
 callsign: AK6MJ
-grid: auto              # Use GPS auto-detection, or explicit grid like "CM98"
+grid: CM98              # Explicit grid recommended. Use "auto" for GPS ONLY if antenna attached!
 power: 23
 device: /dev/cu.usbserial-10
 baud: 9600
 ```
+
+**⚠️ GPS Auto-Grid Warning:**
+- Using `grid: auto` enables GPS-based grid calculation
+- **CRITICAL**: Requires GPS antenna to be attached and working
+- Without GPS, device will enter reboot loop trying to get GPS lock
+- Config persists in EEPROM - device may need factory reset to recover
+- **Recommended**: Use explicit grid square (e.g., "CM98") unless you have GPS antenna connected
+- **If stuck in reboot loop**: See [RECOVERY.md](RECOVERY.md) for recovery instructions
 
 ## Hardware
 
@@ -79,6 +87,7 @@ Dependencies are automatically installed via uv inline script metadata.
 ## Planned
 
 - **WSPR/FT8 Propagation Dashboard** - Real-time propagation monitoring with PSKReporter integration, DXCC/grid tracking, and Pushover alerts. See `wspr_dashboard_spec.md` for details.
+- **Automated Band Switching** - Live serial control enables automation possibilities (time-based rotation, propagation-based switching, feedback loops with PSKReporter data). Could be implemented with simple cron jobs or integrated with the dashboard.
 
 ## License
 

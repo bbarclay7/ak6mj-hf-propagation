@@ -45,19 +45,19 @@ Example exchange:
 
 Config file: ~/.config/wspr-beacon/config.yaml
   callsign: AK6MJ
-  grid: auto              # or explicit grid like CM98
+  grid: CM98              # Explicit grid (recommended) or "auto" for GPS
   power: 23
   device: /dev/cu.usbserial-10
   baud: 9600
 
 Grid Options:
-  auto: Use GPS auto-detection (default)
-  CM98: Explicit 4-character Maidenhead grid locator
+  CM98: Explicit 4-character Maidenhead grid locator (recommended, default)
+  auto: GPS auto-detection (WARNING: Requires GPS antenna! Device will reboot loop without it!)
 
 Usage:
-  wspr-band.py <band>                  # use config defaults (GPS auto-grid)
+  wspr-band.py <band>                  # use config defaults (explicit grid)
   wspr-band.py 20m -g CM98             # override to explicit grid
-  wspr-band.py 20m -g auto             # explicitly request GPS auto-grid
+  wspr-band.py 20m -g auto             # use GPS auto-grid (requires GPS antenna!)
   wspr-band.py 20m -p 27               # override power to 500mW
   wspr-band.py 40m -d /dev/ttyUSB0     # override device
   wspr-band.py --dump-config           # emit default config to stdout
@@ -96,7 +96,7 @@ POWERS = {
 
 DEFAULTS = {
     "callsign": "AK6MJ",
-    "grid": "auto",  # Use GPS auto-detection
+    "grid": "CM98",  # Explicit grid (safer). Use "auto" for GPS auto-detection ONLY if GPS antenna attached!
     "power": 23,
     "device": "/dev/cu.usbserial-10",
     "baud": 9600,
