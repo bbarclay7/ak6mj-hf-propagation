@@ -47,19 +47,34 @@ make test
 Create `~/.config/wspr-beacon/config.yaml`:
 ```yaml
 callsign: AK6MJ
-grid: CM98
+grid: auto              # Use GPS auto-detection, or explicit grid like "CM98"
 power: 23
 device: /dev/cu.usbserial-10
 baud: 9600
 ```
 
+## Hardware
+
+**WSPR Beacon V1.06 by BG6JJI**
+- GPS-synced WSPR transmitter
+- USB serial interface (CH340)
+- Supports 160m-10m bands
+- Purchase: [Banggood](https://uk.banggood.com/custlink/KG38...) or [AliExpress](https://s.click.aliexpress.com/e/_c37...)
+
+Inspired by [Tech Minds: "A CHEAP Way To Test Your HF Antennas Performance With WSPR!"](https://www.youtube.com/watch?v=9ELzV6UiAiU)
+
 ## Requirements
 
 - Python 3.8+
 - [uv](https://github.com/astral-sh/uv) for dependency management
-- WSPR Beacon V1.06 hardware
+- WSPR Beacon V1.06 hardware (see above)
 
 Dependencies are automatically installed via uv inline script metadata.
+
+**Platform Support:**
+- Tested on macOS
+- Linux untested (serial device path may differ: `/dev/ttyUSB0` instead of `/dev/cu.usbserial-10`)
+- Windows untested
 
 ## Planned
 

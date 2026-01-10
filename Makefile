@@ -7,7 +7,7 @@ CALL ?=
 GRID ?=
 POWER ?=
 
-.PHONY: help test monitor 160m 80m 40m 30m 20m 17m 15m 12m 10m
+.PHONY: help test monitor 160m 80m 40m 30m 20m 17m 15m 12m 10m 6m
 
 # Default target - show help
 help:
@@ -30,6 +30,7 @@ help:
 	@echo "  make 15m           Switch to 15m band (21096.1 kHz)"
 	@echo "  make 12m           Switch to 12m band (24926.1 kHz)"
 	@echo "  make 10m           Switch to 10m band (28126.1 kHz)"
+	@echo "  make 6m            Switch to 6m band (50294.5 kHz)"
 	@echo ""
 	@echo "Override parameters:"
 	@echo "  make 20m POWER=27              Switch to 20m at 500mW"
@@ -82,3 +83,6 @@ ARGS = $(if $(CALL),-c $(CALL)) $(if $(GRID),-g $(GRID)) $(if $(POWER),-p $(POWE
 
 10m:
 	@./wspr_band.py 10m $(ARGS)
+
+6m:
+	@./wspr_band.py 6m $(ARGS)

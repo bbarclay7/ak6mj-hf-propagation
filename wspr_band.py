@@ -30,7 +30,7 @@ Serial:
 
 WSPR frequencies (Hz):
   160m=1838100, 80m=3570100, 40m=7040100, 30m=10140200, 20m=14097100,
-  17m=18106100, 15m=21096100, 12m=24926100, 10m=28126100
+  17m=18106100, 15m=21096100, 12m=24926100, 10m=28126100, 6m=50294500
 
 WSPR powers (dBm -> watts):
   0=1mW, 3=2mW, 7=5mW, 10=10mW, 13=20mW, 17=50mW, 20=100mW, 23=200mW,
@@ -45,13 +45,19 @@ Example exchange:
 
 Config file: ~/.config/wspr-beacon/config.yaml
   callsign: AK6MJ
-  grid: CM98
+  grid: auto              # or explicit grid like CM98
   power: 23
   device: /dev/cu.usbserial-10
   baud: 9600
 
+Grid Options:
+  auto: Use GPS auto-detection (default)
+  CM98: Explicit 4-character Maidenhead grid locator
+
 Usage:
-  wspr-band.py <band>                  # use config defaults
+  wspr-band.py <band>                  # use config defaults (GPS auto-grid)
+  wspr-band.py 20m -g CM98             # override to explicit grid
+  wspr-band.py 20m -g auto             # explicitly request GPS auto-grid
   wspr-band.py 20m -p 27               # override power to 500mW
   wspr-band.py 40m -d /dev/ttyUSB0     # override device
   wspr-band.py --dump-config           # emit default config to stdout
@@ -78,6 +84,7 @@ FREQS = {
     "15m": 21096100,
     "12m": 24926100,
     "10m": 28126100,
+    "6m": 50294500,
 }
 
 POWERS = {
@@ -89,7 +96,7 @@ POWERS = {
 
 DEFAULTS = {
     "callsign": "AK6MJ",
-    "grid": "CM98",
+    "grid": "auto",  # Use GPS auto-detection
     "power": 23,
     "device": "/dev/cu.usbserial-10",
     "baud": 9600,
@@ -104,6 +111,7 @@ def load_config(path):
 
 def wait_for(ser, prefix, timeout=120, start_time=None):
     ser.timeout = timeout
+    prefixes = (prefix,) if isinstance(prefix, str) else prefix
     while True:
         line = ser.readline().decode(errors="ignore").strip()
         if not line:
@@ -113,8 +121,9 @@ def wait_for(ser, prefix, timeout=120, start_time=None):
             print(f"[t+{elapsed:3d}s] < {line}")
         else:
             print(f"[t+???s] < {line}")
-        if line.startswith(prefix):
-            return line
+        for p in prefixes:
+            if line.startswith(p):
+                return line
 
 def handle_serial_error(device, error):
     """Handle serial port errors with diagnostics"""
@@ -193,10 +202,18 @@ def main():
     if power not in POWERS:
         sys.exit(f"Invalid power {power} dBm. Valid: {list(POWERS.keys())}")
 
-    freq = FREQS[args.band]
-    config_str = f"CONFIG:{call},{grid},{power},{freq}"
+    # Convert "auto" to 4 spaces for GPS auto-grid
+    if grid.lower() == "auto":
+        grid_display = "auto (GPS)"
+        grid_config = "    "  # 4 spaces
+    else:
+        grid_display = grid
+        grid_config = grid
 
-    print(f"Callsign: {call}, Grid: {grid}")
+    freq = FREQS[args.band]
+    config_str = f"CONFIG:{call},{grid_config},{power},{freq}"
+
+    print(f"Callsign: {call}, Grid: {grid_display}")
     print(f"Power: {power} dBm ({POWERS[power]})")
     print(f"Band: {args.band} ({freq} Hz)")
     print(f"Opening {device} at {baud} baud")
@@ -210,6 +227,8 @@ def main():
 
     try:
         print("Waiting for TX idle...")
+        print("Note: WSPR transmits every ~2 minutes. Complete process may take 3-4 minutes.")
+        print("      Don't panic - grab coffee and watch the timestamps!")
         if not wait_for(ser, "TX:", start_time=start_time):
             sys.exit("Timeout waiting for TX line")
 
@@ -217,8 +236,11 @@ def main():
         print(f"[t+{elapsed:3d}s] > {config_str}")
         ser.write(f"{config_str}\r\n".encode())
 
-        if not wait_for(ser, "OK", start_time=start_time):
-            sys.exit("No OK response received")
+        response = wait_for(ser, ("OK", "ERR"), start_time=start_time)
+        if not response:
+            sys.exit("No response received from beacon")
+        elif response.startswith("ERR"):
+            sys.exit("Beacon rejected configuration (invalid format or parameters)")
 
         tx_line = wait_for(ser, "TX:", start_time=start_time)
         if not tx_line:
