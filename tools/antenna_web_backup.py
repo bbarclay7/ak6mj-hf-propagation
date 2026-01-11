@@ -8,13 +8,13 @@
 # ]
 # ///
 """
-Web interface for antenna comparison experiments - with proper proxy prefix support.
+Web interface for antenna comparison experiments.
 
 Run with: uv run antenna_web.py
-Access at: http://localhost:5000 or behind proxy at https://shoeph.one/hf/
+Access at: http://localhost:5000
 """
 
-from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from datetime import datetime, timezone
 from werkzeug.middleware.proxy_fix import ProxyFix
 import json
@@ -22,19 +22,13 @@ import os
 
 import antenna
 
-# Determine if running behind proxy at /hf/
-URL_PREFIX = os.getenv('URL_PREFIX', '')
-
 app = Flask(__name__)
 
-# Support running behind reverse proxy
-if URL_PREFIX:
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    app.config['APPLICATION_ROOT'] = URL_PREFIX
+# Support running behind reverse proxy at /hf/
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Create blueprint with URL prefix
-# Note: name='main' to avoid prefixing endpoint names (keeps url_for('index') working in templates)
-bp = Blueprint('main', __name__, url_prefix=URL_PREFIX)
+# Configure application for proxy prefix
+app.config['APPLICATION_ROOT'] = os.getenv('APP_PREFIX', '/')
 
 # Default test plan based on rybtest.md
 DEFAULT_PLAN = {
@@ -48,7 +42,7 @@ DEFAULT_PLAN = {
 # HTML Routes
 # ============================================================
 
-@bp.route("/")
+@app.route("/")
 def index():
     """Dashboard / home page."""
     status = antenna.get_session_status()
@@ -62,14 +56,14 @@ def index():
                            comparisons=comparisons)
 
 
-@bp.route("/antennas")
+@app.route("/antennas")
 def antennas_page():
     """Antenna management page."""
     antennas = antenna.get_antennas()
     return render_template("antennas.html", antennas=antennas)
 
 
-@bp.route("/experiment")
+@app.route("/experiment")
 def experiment_page():
     """Experiment execution page."""
     status = antenna.get_session_status()
@@ -82,7 +76,7 @@ def experiment_page():
                            default_plan=DEFAULT_PLAN)
 
 
-@bp.route("/analysis/<comparison_id>")
+@app.route("/analysis/<comparison_id>")
 def analysis_page(comparison_id):
     """View analysis results."""
     comparison = antenna.get_comparison(comparison_id)
@@ -91,7 +85,7 @@ def analysis_page(comparison_id):
     return render_template("analysis.html", comparison=comparison)
 
 
-@bp.route("/comparisons")
+@app.route("/comparisons")
 def comparisons_page():
     """List all comparisons."""
     comparisons = antenna.list_comparisons()
@@ -102,19 +96,19 @@ def comparisons_page():
 # API Routes
 # ============================================================
 
-@bp.route("/api/status")
+@app.route("/api/status")
 def api_status():
     """Get current session status."""
     return jsonify(antenna.get_session_status())
 
 
-@bp.route("/api/antennas", methods=["GET"])
+@app.route("/api/antennas", methods=["GET"])
 def api_antennas_list():
     """List all antennas."""
     return jsonify(antenna.get_antennas())
 
 
-@bp.route("/api/antennas", methods=["POST"])
+@app.route("/api/antennas", methods=["POST"])
 def api_antennas_create():
     """Create a new antenna."""
     data = request.json
@@ -140,7 +134,7 @@ def api_antennas_create():
     })
 
 
-@bp.route("/api/antennas/<label>", methods=["DELETE"])
+@app.route("/api/antennas/<label>", methods=["DELETE"])
 def api_antennas_delete(label):
     """Delete an antenna."""
     antennas = antenna.load_json(antenna.ANTENNAS_FILE)
@@ -152,13 +146,14 @@ def api_antennas_delete(label):
     return jsonify({"success": True, "deleted": label})
 
 
-@bp.route("/api/start", methods=["POST"])
+@app.route("/api/start", methods=["POST"])
 def api_start():
     """Start a new session."""
     status = antenna.get_session_status()
     if status["active"]:
         return jsonify({"error": "Session already active"}), 400
 
+    # Fetch solar data
     solar = antenna.fetch_solar_data()
     solar_summary = None
     if solar:
@@ -186,7 +181,7 @@ def api_start():
     return jsonify({"success": True, "entry": entry})
 
 
-@bp.route("/api/stop", methods=["POST"])
+@app.route("/api/stop", methods=["POST"])
 def api_stop():
     """Stop the current session."""
     status = antenna.get_session_status()
@@ -204,7 +199,7 @@ def api_stop():
     return jsonify({"success": True, "entry": entry})
 
 
-@bp.route("/api/pause", methods=["POST"])
+@app.route("/api/pause", methods=["POST"])
 def api_pause():
     """Pause the current session."""
     status = antenna.get_session_status()
@@ -224,7 +219,7 @@ def api_pause():
     return jsonify({"success": True, "entry": entry})
 
 
-@bp.route("/api/resume", methods=["POST"])
+@app.route("/api/resume", methods=["POST"])
 def api_resume():
     """Resume a paused session."""
     status = antenna.get_session_status()
@@ -244,7 +239,7 @@ def api_resume():
     return jsonify({"success": True, "entry": entry})
 
 
-@bp.route("/api/use", methods=["POST"])
+@app.route("/api/use", methods=["POST"])
 def api_use():
     """Switch to an antenna (optionally with band)."""
     status = antenna.get_session_status()
@@ -259,6 +254,7 @@ def api_use():
     if label not in antennas:
         return jsonify({"error": f"Unknown antenna: {label}"}), 400
 
+    # Switch band if specified
     band_switched = False
     if band:
         band_switched = antenna.switch_band(band)
@@ -284,14 +280,14 @@ def api_use():
     })
 
 
-@bp.route("/api/preview")
+@app.route("/api/preview")
 def api_preview():
     """Get live preview of data collected so far."""
     grid = request.args.get("grid", "CM98kq")
     return jsonify(antenna.get_live_preview(grid))
 
 
-@bp.route("/api/solar")
+@app.route("/api/solar")
 def api_solar():
     """Get current solar conditions."""
     solar = antenna.fetch_solar_data()
@@ -300,13 +296,13 @@ def api_solar():
     return jsonify(solar)
 
 
-@bp.route("/api/comparisons")
+@app.route("/api/comparisons")
 def api_comparisons():
     """List all comparisons."""
     return jsonify(antenna.list_comparisons())
 
 
-@bp.route("/api/comparisons/<comparison_id>")
+@app.route("/api/comparisons/<comparison_id>")
 def api_comparison(comparison_id):
     """Get details of a comparison."""
     comp = antenna.get_comparison(comparison_id)
@@ -315,13 +311,15 @@ def api_comparison(comparison_id):
     return jsonify(comp)
 
 
-@bp.route("/api/analyze", methods=["POST"])
+@app.route("/api/analyze", methods=["POST"])
 def api_analyze():
     """Run analysis on current session."""
     data = request.json or {}
     grid = data.get("grid", "CM98kq")
 
+    # Run the analysis (this takes time)
     try:
+        # Capture the analysis output by redirecting
         import io
         import sys
         old_stdout = sys.stdout
@@ -332,6 +330,7 @@ def api_analyze():
         output = sys.stdout.getvalue()
         sys.stdout = old_stdout
 
+        # Find the latest comparison
         comparisons = antenna.list_comparisons()
         latest = comparisons[0] if comparisons else None
 
@@ -344,7 +343,7 @@ def api_analyze():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/api/wsjtx/switch", methods=["POST"])
+@app.route("/api/wsjtx/switch", methods=["POST"])
 def api_wsjtx_switch():
     """Switch WSJT-X band configuration."""
     data = request.json
@@ -356,14 +355,14 @@ def api_wsjtx_switch():
     return jsonify({"success": success, "band": band})
 
 
-@bp.route("/api/clear", methods=["POST"])
+@app.route("/api/clear", methods=["POST"])
 def api_clear():
     """Clear the session log."""
     antenna.save_json(antenna.ANTENNA_LOG_FILE, [])
     return jsonify({"success": True})
 
 
-@bp.route("/health")
+@app.route("/health")
 def health():
     """Health check endpoint for monitoring."""
     return jsonify({
@@ -374,20 +373,12 @@ def health():
     }), 200
 
 
-# Register blueprint
-app.register_blueprint(bp)
-
 # ============================================================
 # Main
 # ============================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv('PORT', 5000))
     print("Starting Antenna Comparison Web UI...")
-    if URL_PREFIX:
-        print(f"URL Prefix: {URL_PREFIX}")
-        print(f"Access at: http://localhost:{port}{URL_PREFIX}/")
-    else:
-        print(f"Access at: http://localhost:{port}/")
-    print("Or from other devices: http://<your-ip>:{port}/")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    print("Access at: http://localhost:5000")
+    print("Or from other devices: http://<your-ip>:5000")
+    app.run(host="0.0.0.0", port=5000, debug=True)

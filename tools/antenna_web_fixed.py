@@ -33,8 +33,7 @@ if URL_PREFIX:
     app.config['APPLICATION_ROOT'] = URL_PREFIX
 
 # Create blueprint with URL prefix
-# Note: name='main' to avoid prefixing endpoint names (keeps url_for('index') working in templates)
-bp = Blueprint('main', __name__, url_prefix=URL_PREFIX)
+bp = Blueprint('antenna', __name__, url_prefix=URL_PREFIX)
 
 # Default test plan based on rybtest.md
 DEFAULT_PLAN = {
