@@ -1,7 +1,15 @@
 # Makefile for WSPR beacon management
 
+# Auto-detect OS and set default device
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    DEVICE ?= /dev/ttyUSB0
+endif
+ifeq ($(UNAME_S),Darwin)
+    DEVICE ?= /dev/cu.usbserial-110
+endif
+
 # Configuration
-DEVICE ?= /dev/cu.usbserial-110
 BAUD ?= 9600
 CALL ?=
 GRID ?=
