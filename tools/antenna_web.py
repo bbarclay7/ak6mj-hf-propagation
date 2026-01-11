@@ -16,11 +16,19 @@ Access at: http://localhost:5000
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from datetime import datetime, timezone
+from werkzeug.middleware.proxy_fix import ProxyFix
 import json
+import os
 
 import antenna
 
 app = Flask(__name__)
+
+# Support running behind reverse proxy at /hf/
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Configure application for proxy prefix
+app.config['APPLICATION_ROOT'] = os.getenv('APP_PREFIX', '/')
 
 # Default test plan based on rybtest.md
 DEFAULT_PLAN = {
@@ -352,6 +360,17 @@ def api_clear():
     """Clear the session log."""
     antenna.save_json(antenna.ANTENNA_LOG_FILE, [])
     return jsonify({"success": True})
+
+
+@app.route("/health")
+def health():
+    """Health check endpoint for monitoring."""
+    return jsonify({
+        "status": "ok",
+        "service": "antenna-web",
+        "version": "1.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }), 200
 
 
 # ============================================================
