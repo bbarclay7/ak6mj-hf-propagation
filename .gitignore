@@ -21,10 +21,16 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Config files with secrets
-config.yaml
-*.db
+# User artifacts directory
+local/
 
-# Temporary files
-*.log
-*.tmp
+# Legacy artifacts (during migration, remove after cleanup)
+comparison_*/
+antenna_log.json
+antennas.json
+
+# Test artifacts
+tests/fixtures/generated_*
+coverage.xml
+.coverage
+htmlcov/

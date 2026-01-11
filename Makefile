@@ -1,7 +1,7 @@
 # Makefile for WSPR beacon management
 
 # Configuration
-DEVICE ?= /dev/cu.usbserial-10
+DEVICE ?= /dev/cu.usbserial-110
 BAUD ?= 9600
 CALL ?=
 GRID ?=
