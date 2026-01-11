@@ -15,18 +15,18 @@ HOUR=$(date -u +%H)
 # Pattern optimized for general propagation (not location-specific)
 
 case $((HOUR / 2)) in
-    0)  BAND="80m" ;;   # 00-01 UTC
-    1)  BAND="40m" ;;   # 02-03 UTC
-    2)  BAND="40m" ;;   # 04-05 UTC
-    3)  BAND="30m" ;;   # 06-07 UTC
-    4)  BAND="20m" ;;   # 08-09 UTC
-    5)  BAND="20m" ;;   # 10-11 UTC
-    6)  BAND="17m" ;;   # 12-13 UTC
-    7)  BAND="15m" ;;   # 14-15 UTC
-    8)  BAND="20m" ;;   # 16-17 UTC
-    9)  BAND="20m" ;;   # 18-19 UTC
-    10) BAND="30m" ;;   # 20-21 UTC
-    11) BAND="40m" ;;   # 22-23 UTC
+    0)  BAND="40m" ;;   # 00-01 UTC = 4-5pm PST (sunset transition)
+    1)  BAND="40m" ;;   # 02-03 UTC = 6-7pm PST (evening)
+    2)  BAND="40m" ;;   # 04-05 UTC = 8-9pm PST (night)
+    3)  BAND="80m" ;;   # 06-07 UTC = 10-11pm PST (late night, 80m opens)
+    4)  BAND="80m" ;;   # 08-09 UTC = 12-1am PST (graveyard)
+    5)  BAND="80m" ;;   # 10-11 UTC = 2-3am PST (deep night)
+    6)  BAND="40m" ;;   # 12-13 UTC = 4-5am PST (pre-dawn)
+    7)  BAND="40m" ;;   # 14-15 UTC = 6-7am PST (sunrise)
+    8)  BAND="20m" ;;   # 16-17 UTC = 8-9am PST (morning, 20m opens)
+    9)  BAND="15m" ;;   # 18-19 UTC = 10-11am PST (15m peak, solar max)
+    10) BAND="15m" ;;   # 20-21 UTC = 12-1pm PST (midday, best antenna perf)
+    11) BAND="10m" ;;   # 22-23 UTC = 2-3pm PST (afternoon, 10m good at solar max)
     *)  BAND="40m" ;;   # Fallback
 esac
 

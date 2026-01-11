@@ -6,20 +6,22 @@ The `wspr-cron.sh` script automatically rotates the WSPR beacon through bands ba
 
 ### Band Schedule (UTC)
 
-| UTC Hours  | Band | Notes                        |
-|------------|------|------------------------------|
-| 00-01      | 80m  | Night, low band propagation  |
-| 02-03      | 40m  | Night, reliable DX           |
-| 04-05      | 40m  | Pre-dawn, EU opens           |
-| 06-07      | 30m  | Dawn transition              |
-| 08-09      | 20m  | Morning, primary DX band     |
-| 10-11      | 20m  | Midday, long path            |
-| 12-13      | 17m  | Afternoon, higher band       |
-| 14-15      | 15m  | Afternoon peak               |
-| 16-17      | 20m  | Late afternoon               |
-| 18-19      | 20m  | Evening, short path          |
-| 20-21      | 30m  | Sunset transition            |
-| 22-23      | 40m  | Night, reliable DX           |
+Optimized for CM98kq (Folsom, CA) winter propagation during solar maximum. PST = UTC-8.
+
+| UTC Hours  | Band | Local Time (PST) | Notes                                    |
+|------------|------|------------------|------------------------------------------|
+| 00-01      | 40m  | 4-5pm PST        | Sunset transition, 40m opens             |
+| 02-03      | 40m  | 6-7pm PST        | Evening, reliable DX                     |
+| 04-05      | 40m  | 8-9pm PST        | Night                                    |
+| 06-07      | 80m  | 10-11pm PST      | Late night, 80m opens                    |
+| 08-09      | 80m  | 12-1am PST       | Graveyard shift, EU gray line            |
+| 10-11      | 80m  | 2-3am PST        | Deep night, best 80m                     |
+| 12-13      | 40m  | 4-5am PST        | Pre-dawn                                 |
+| 14-15      | 40m  | 6-7am PST        | Sunrise, EU/Asia                         |
+| 16-17      | 20m  | 8-9am PST        | Morning, 20m opens                       |
+| 18-19      | 15m  | 10-11am PST      | 15m peak (solar max, best antenna perf)  |
+| 20-21      | 15m  | 12-1pm PST       | Midday, 15m wide open                    |
+| 22-23      | 10m  | 2-3pm PST        | Afternoon, 10m good at solar max         |
 
 ### Installation
 
@@ -78,20 +80,40 @@ The cron will switch it back at the next scheduled rotation.
 
 ### Customizing the Schedule
 
-Edit `scripts/wspr-cron.sh` and modify the `case` statement to change bands:
+**Seasonal Adjustments:**
+
+The current schedule is optimized for winter solar maximum. As conditions change:
+
+- **Spring/Summer** (longer days, later sunset ~8pm):
+  - Shift higher bands (15m/10m) later: 00-05 UTC (4-9pm PST)
+  - Move 40m/80m earlier to catch pre-dawn hours
+  - Consider 20m for late afternoon (20-23 UTC = 12-3pm)
+
+- **Fall** (earlier sunset ~5pm, similar to winter):
+  - Keep current schedule mostly intact
+  - May shift 80m earlier as nights lengthen
+
+- **Solar Minimum** (2029-2031):
+  - Replace 15m/10m daytime slots with 20m/17m
+  - Increase 40m coverage during day
+  - Add 30m for daytime NVIS and regional contacts
+
+**Edit the schedule:**
 
 ```bash
+# Edit scripts/wspr-cron.sh
 case $((HOUR / 2)) in
-    0)  BAND="80m" ;;   # Change this to your preferred band
+    0)  BAND="40m" ;;   # Change to your preferred band
     1)  BAND="40m" ;;
     # ... etc
 esac
 ```
 
-You can also change the rotation frequency by adjusting the cron schedule:
-- `0 */2 * * *` - Every 2 hours (recommended)
-- `0 */4 * * *` - Every 4 hours (less frequent)
-- `0 * * * *` - Every hour (more frequent, less time per band)
+**Change rotation frequency:**
+- `0 */2 * * *` - Every 2 hours (current, recommended)
+- `0 */4 * * *` - Every 4 hours (less frequent, more time per band)
+- `0 * * * *` - Every hour (more frequent, less coverage per band)
+- `0,30 */1 * * *` - Every 90 minutes (compromise)
 
 ### Troubleshooting
 
