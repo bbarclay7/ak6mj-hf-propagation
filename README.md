@@ -2,6 +2,28 @@
 
 Personal HF propagation monitoring and beacon control tools for AK6MJ (CM98).
 
+## Project Structure
+
+```
+wspr/
+├── wspr_band.py          # WSPR beacon controller
+├── lib/                  # Shared libraries
+│   ├── band_utils.py     # Band/frequency utilities
+│   ├── config.py         # Configuration management
+│   ├── geo_utils.py      # Geographic calculations
+│   ├── pskreporter.py    # PSKReporter API client
+│   └── solar.py          # Solar data fetching
+├── tools/                # FT8 and antenna analysis tools
+│   ├── antenna.py        # Antenna comparison tool
+│   ├── antenna_web.py    # Web interface for antenna tests
+│   ├── ft8tool.py        # FT8 analysis utilities
+│   └── ...
+├── tests/                # Test suite
+├── docs/                 # Documentation
+├── scripts/              # Automation scripts
+└── local/                # User artifacts (gitignored)
+```
+
 ## Tools
 
 ### wspr_band.py - WSPR Beacon Band Controller
@@ -18,9 +40,6 @@ Control WSPR Beacon V1.06 by BG6JJI via serial interface.
 
 **Quick Start:**
 ```bash
-# Make scripts executable (first time only)
-chmod +x wspr_band.py test_wspr_band.py
-
 # Show available commands
 make
 
@@ -34,6 +53,16 @@ make monitor
 # Run tests
 make test
 ```
+
+### FT8 Tools (tools/ directory)
+
+See `tools/README.md` for detailed documentation on:
+- **antenna.py** - Compare antenna performance using FT8/WSPR data
+- **antenna_web.py** - Web interface for antenna experiments
+- **ft8tool.py** - FT8 analysis and statistics
+- **wsjtx_control.py** - WSJT-X automation
+
+All tools use PEP 723 metadata and run with `uv run`.
 
 **Direct Usage:**
 ```bash
@@ -59,7 +88,7 @@ baud: 9600
 - Without GPS, device will enter reboot loop trying to get GPS lock
 - Config persists in EEPROM - device may need factory reset to recover
 - **Recommended**: Use explicit grid square (e.g., "CM98") unless you have GPS antenna connected
-- **If stuck in reboot loop**: See [RECOVERY.md](RECOVERY.md) for recovery instructions
+- **If stuck in reboot loop**: See `docs/RECOVERY.md` for recovery instructions (in attic/)
 
 ## Hardware
 
@@ -84,10 +113,34 @@ Dependencies are automatically installed via uv inline script metadata.
 - Linux untested (serial device path may differ: `/dev/ttyUSB0` instead of `/dev/cu.usbserial-10`)
 - Windows untested
 
-## Planned
+## Documentation
 
-- **WSPR/FT8 Propagation Dashboard** - Real-time propagation monitoring with PSKReporter integration, DXCC/grid tracking, and Pushover alerts. See `wspr_dashboard_spec.md` for details.
-- **Automated Band Switching** - Live serial control enables automation possibilities (time-based rotation, propagation-based switching, feedback loops with PSKReporter data). Could be implemented with simple cron jobs or integrated with the dashboard.
+- `docs/INTEGRATION_PLAN.md` - Phase 1-4 modernization and integration plan
+- `docs/PHASE1_COMPLETE.md` - Phase 1 completion summary
+- `docs/CRON_SETUP.md` - Automated band rotation setup
+- `docs/wspr_dashboard_spec.md` - Future dashboard specifications
+- `docs/ARTIFACT_STRATEGY.md` - Local artifact management strategy
+
+## Development
+
+**Running Tests:**
+```bash
+# Run all tests
+uv run tests/test_geo_utils.py
+uv run tests/test_band_utils.py
+uv run tests/test_solar.py
+uv run tests/test_config.py
+uv run tests/test_wspr_band.py
+```
+
+**Automated Band Rotation:**
+See `docs/CRON_SETUP.md` for setting up automatic band changes based on time of day and propagation conditions.
+
+## Planned Features
+
+- **Unified Web Dashboard** - Combining WSPR beacon control with FT8/antenna analysis
+- **Band Scheduler** - Visual timeline with automatic band switching
+- **PSKReporter Integration** - Real-time propagation monitoring with DXCC/grid tracking
 
 ## License
 
