@@ -72,7 +72,13 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 ANTENNAS_FILE = DATA_DIR / "antennas.json"
 ANTENNA_LOG_FILE = DATA_DIR / "antenna_log.json"
-ALL_TXT = Path("/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT")
+
+# Find ALL.TXT - check synced location first (for www server), then Windows path (for local dev)
+_POSSIBLE_PATHS = [
+    Path("/var/www/local/ft8-tools/ALL.TXT"),  # Synced from hamtop1 on www server
+    Path("/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT"),  # Direct access on Windows/WSL
+]
+ALL_TXT = next((p for p in _POSSIBLE_PATHS if p.exists()), _POSSIBLE_PATHS[-1])
 
 
 def load_json(path: Path) -> dict | list:
