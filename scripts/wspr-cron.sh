@@ -4,6 +4,9 @@
 # Run from cron every 2 hours to rotate through bands
 # Idempotent: Only switches band if not already on the target band
 
+# Set PATH for cron environment (uv is typically in ~/.local/bin)
+export PATH="$HOME/.local/bin:$PATH"
+
 WSPR_DIR="$HOME/work/ak6mj-hf-propagation"
 cd "$WSPR_DIR" || exit 1
 
