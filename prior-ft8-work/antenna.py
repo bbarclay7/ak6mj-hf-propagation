@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# -*- mode: python; -*-
+# vim: set ft=python:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """
 Antenna comparison tool for FT8 signal analysis.
 
@@ -32,10 +38,18 @@ Propagation Data:
 import sys
 import json
 import re
-import math
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
+from collections import defaultdict
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+
+# Import from shared libraries
+from band_utils import BANDS, freq_to_band
+from geo_utils import grid_to_latlon, calc_bearing, calc_distance_km, bearing_to_direction
+from pskreporter import fetch_spots
+from solar import fetch_solar_data
 
 
 def parse_timestamp(ts_str: str) -> datetime:
@@ -49,33 +63,16 @@ def parse_timestamp(ts_str: str) -> datetime:
     return dt
 
 
-from collections import defaultdict
-import urllib.request
-
-SOLAR_XML_URL = "https://www.hamqsl.com/solarxml.php"
-PSKREPORTER_URL = "https://retrieve.pskreporter.info/query"
 MY_CALLSIGN = "AK6MJ"
 
-DATA_DIR = Path(__file__).parent
+# Use local/ directory for user artifacts
+SCRIPT_DIR = Path(__file__).parent
+DATA_DIR = SCRIPT_DIR.parent / "local" / "ft8-tools"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 ANTENNAS_FILE = DATA_DIR / "antennas.json"
 ANTENNA_LOG_FILE = DATA_DIR / "antenna_log.json"
 ALL_TXT = Path("/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT")
-
-# Band edges for categorization (MHz)
-BANDS = {
-    "160m": (1.8, 2.0),
-    "80m": (3.5, 4.0),
-    "60m": (5.3, 5.4),
-    "40m": (7.0, 7.3),
-    "30m": (10.1, 10.15),
-    "20m": (14.0, 14.35),
-    "17m": (18.068, 18.168),
-    "15m": (21.0, 21.45),
-    "12m": (24.89, 24.99),
-    "10m": (28.0, 29.7),
-    "6m": (50.0, 54.0),
-    "2m": (144.0, 148.0),
-}
 
 
 def load_json(path: Path) -> dict | list:
@@ -86,67 +83,6 @@ def load_json(path: Path) -> dict | list:
 
 def save_json(path: Path, data):
     path.write_text(json.dumps(data, indent=2))
-
-
-def grid_to_latlon(grid: str) -> tuple[float, float] | None:
-    """Convert Maidenhead grid to lat/lon (center of grid)."""
-    grid = grid.upper().strip()
-    if len(grid) < 4:
-        return None
-
-    try:
-        lon = (ord(grid[0]) - ord('A')) * 20 - 180
-        lat = (ord(grid[1]) - ord('A')) * 10 - 90
-        lon += (ord(grid[2]) - ord('0')) * 2
-        lat += (ord(grid[3]) - ord('0')) * 1
-
-        if len(grid) >= 6:
-            lon += (ord(grid[4].upper()) - ord('A')) * (2/24) + (1/24)
-            lat += (ord(grid[5].upper()) - ord('A')) * (1/24) + (1/48)
-        else:
-            lon += 1  # center of 2-char subsquare
-            lat += 0.5
-
-        return lat, lon
-    except (IndexError, ValueError):
-        return None
-
-
-def calc_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate bearing from point 1 to point 2 in degrees."""
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    x = math.sin(dlon) * math.cos(lat2)
-    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
-    bearing = math.atan2(x, y)
-    return (math.degrees(bearing) + 360) % 360
-
-
-def calc_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate great-circle distance between two points in kilometers."""
-    R = 6371  # Earth's radius in km
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c
-
-
-def freq_to_band(freq_mhz: float) -> str:
-    """Convert frequency to band name."""
-    for band, (low, high) in BANDS.items():
-        if low <= freq_mhz <= high:
-            return band
-    return f"{freq_mhz:.3f}MHz"
-
-
-def bearing_to_direction(bearing: float) -> str:
-    """Convert bearing to compass direction."""
-    dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
-    idx = round(bearing / 22.5) % 16
-    return dirs[idx]
 
 
 def parse_all_txt_line(line: str) -> dict | None:
@@ -1620,98 +1556,20 @@ def cmd_analyze(my_grid: str = "CM98kq"):
     print("=" * 60)
 
 
-def fetch_solar_data() -> dict | None:
-    """Fetch current solar/propagation data from HamQSL."""
-    try:
-        req = urllib.request.Request(SOLAR_XML_URL)
-        req.add_header('User-Agent', 'antenna-analyzer/1.0')
-        with urllib.request.urlopen(req, timeout=10) as response:
-            xml_data = response.read().decode('utf-8')
-
-        root = ET.fromstring(xml_data)
-        solar = root.find('.//solardata')
-        if solar is None:
-            return None
-
-        data = {}
-        for child in solar:
-            data[child.tag] = child.text
-
-        return data
-    except Exception as e:
-        print(f"Error fetching solar data: {e}")
-        return None
-
-
 def fetch_pskreporter_spots(callsign: str, start_time: datetime, end_time: datetime | None = None) -> list[dict]:
     """Fetch TX spots from PSKReporter for a time window.
 
     Returns list of dicts with: receiver_call, receiver_grid, freq_mhz, band, snr, timestamp
     If end_time is None, fetches all spots from start_time to now.
     """
-    import time
+    # Use library function
+    spots = fetch_spots(callsign, start_time, end_time, mode="FT8")
 
-    # PSKReporter limits: max 24 hours back, returns max ~100 spots per query
-    # flowStartSeconds is negative offset from now, or absolute Unix timestamp
-    now = datetime.now(timezone.utc)
+    # Filter by end_time if specified (library doesn't support this yet)
+    if end_time:
+        spots = [s for s in spots if s['timestamp'] <= end_time]
 
-    # Calculate time bounds
-    seconds_ago = int((now - start_time).total_seconds())
-    if seconds_ago > 86400:
-        seconds_ago = 86400  # PSKReporter max is 24 hours
-
-    url = f"{PSKREPORTER_URL}?senderCallsign={callsign}&flowStartSeconds=-{seconds_ago}&mode=FT8&rronly=1"
-
-    # Retry with backoff on rate limiting
-    for attempt in range(3):
-        try:
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'antenna-analyzer/1.0')
-            with urllib.request.urlopen(req, timeout=30) as response:
-                xml_data = response.read().decode('utf-8')
-
-            root = ET.fromstring(xml_data)
-            spots = []
-
-            for report in root.findall('.//receptionReport'):
-                try:
-                    ts_unix = int(report.get('flowStartSeconds', 0))
-                    ts = datetime.fromtimestamp(ts_unix, tz=timezone.utc)
-
-                    # Filter to time window if end_time specified
-                    if end_time and (ts < start_time or ts > end_time):
-                        continue
-
-                    freq_hz = int(report.get('frequency', 0))
-                    freq_mhz = freq_hz / 1_000_000
-
-                    snr_str = report.get('sNR')
-                    snr = int(snr_str) if snr_str else None
-
-                    spots.append({
-                        'receiver_call': report.get('receiverCallsign', ''),
-                        'receiver_grid': report.get('receiverLocator', ''),
-                        'freq_mhz': freq_mhz,
-                        'band': freq_to_band(freq_mhz),
-                        'snr': snr,
-                        'timestamp': ts,
-                    })
-                except (ValueError, TypeError):
-                    continue
-
-            return spots
-        except urllib.error.HTTPError as e:
-            if e.code in (503, 429) and attempt < 2:
-                wait = (attempt + 1) * 10
-                print(f"PSKReporter rate limited, waiting {wait}s...")
-                time.sleep(wait)
-                continue
-            print(f"Error fetching PSKReporter data: {e}")
-            return []
-        except Exception as e:
-            print(f"Error fetching PSKReporter data: {e}")
-            return []
-    return []
+    return spots
 
 
 def cmd_solar():

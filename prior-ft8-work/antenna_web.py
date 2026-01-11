@@ -1,8 +1,16 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# -*- mode: python; -*-
+# vim: set ft=python:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "flask",
+# ]
+# ///
 """
 Web interface for antenna comparison experiments.
 
-Run with: python3 antenna_web.py
+Run with: uv run antenna_web.py
 Access at: http://localhost:5000
 """
 

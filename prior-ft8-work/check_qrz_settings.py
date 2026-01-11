@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# -*- mode: python; -*-
+# vim: set ft=python:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """
 Check current QRZ.com profile settings for a callsign via the XML API.
 Requires QRZ XML subscription. Store credentials in ~/.qrz_credentials:

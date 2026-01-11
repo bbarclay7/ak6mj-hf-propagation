@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# -*- mode: python; -*-
+# vim: set ft=python:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """
 FT8 Tool - Interactive TUI for FT8 log management and antenna analysis.
 

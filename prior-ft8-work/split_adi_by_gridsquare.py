@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# -*- mode: python; -*-
+# vim: set ft=python:
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """
 Split a WSJTX ADI log file into separate files based on MY_GRIDSQUARE field.
 Each output file is named <gridsquare>_wsjtx_log.adi and contains only QSOs
