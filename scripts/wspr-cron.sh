@@ -11,7 +11,8 @@ WSPR_DIR="$HOME/work/ak6mj-hf-propagation"
 cd "$WSPR_DIR" || exit 1
 
 # Get current UTC hour (WSPR uses UTC)
-HOUR=$(date -u +%H)
+# Strip leading zero to avoid octal interpretation (08 -> 8)
+HOUR=$(date -u +%H | sed 's/^0//')
 
 # Simple rotation based on UTC hour (changes every 2 hours)
 # This provides good coverage without needing sunrise calculations
@@ -32,6 +33,13 @@ case $((HOUR / 2)) in
     11) BAND="10m" ;;   # 22-23 UTC = 2-3pm PST (afternoon, 10m good at solar max)
     *)  BAND="40m" ;;   # Fallback
 esac
+
+# Sanity check: ensure BAND is set
+if [ -z "$BAND" ]; then
+    mkdir -p "$WSPR_DIR/local/logs"
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - ERROR: BAND variable is empty (HOUR=$HOUR)" >> "$WSPR_DIR/local/logs/band-rotation.log"
+    exit 1
+fi
 
 # Band frequencies for comparison
 declare -A FREQS=(
