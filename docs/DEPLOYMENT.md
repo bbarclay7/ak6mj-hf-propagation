@@ -2,11 +2,13 @@
 
 This document covers deploying the web-based tools (antenna_web.py, future unified dashboard) to both local and remote environments.
 
+> **Note**: Infrastructure-specific deployment details (server hostnames, IPs, network topology, SSH setup) are maintained in a separate private operations repository. This keeps infrastructure details secure while keeping the tools themselves public.
+
 ## Overview
 
 The codebase supports two deployment modes:
 1. **Local Development** - Run tools on your local machine for testing/development
-2. **Remote Deployment** - Deploy to Digital Ocean droplet for public access
+2. **Remote Deployment** - Deploy to remote server for public access
 
 Deployment credentials and server-specific config are kept in `local/deploy/` (gitignored).
 
