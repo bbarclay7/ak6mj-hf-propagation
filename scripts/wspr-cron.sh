@@ -2,6 +2,7 @@
 # WSPR beacon band rotation script
 # Simple UTC-based rotation - keeps it predictable and doesn't need sunrise calculations
 # Run from cron every 2 hours to rotate through bands
+# Idempotent: Only switches band if not already on the target band
 
 WSPR_DIR="$HOME/work/ak6mj-hf-propagation"
 cd "$WSPR_DIR" || exit 1
@@ -29,10 +30,45 @@ case $((HOUR / 2)) in
     *)  BAND="40m" ;;   # Fallback
 esac
 
-# Log band change
+# Band frequencies for comparison
+declare -A FREQS=(
+    ["160m"]=1838100
+    ["80m"]=3570100
+    ["40m"]=7040100
+    ["30m"]=10140200
+    ["20m"]=14097100
+    ["17m"]=18106100
+    ["15m"]=21096100
+    ["12m"]=24926100
+    ["10m"]=28126100
+    ["6m"]=50294500
+)
+
+TARGET_FREQ=${FREQS[$BAND]}
+
+# Check current band by monitoring serial output for TX: line
+# TX line format: "TX:AK6MJ CM98 23 7040100 DONE"
 mkdir -p "$WSPR_DIR/local/logs"
-echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Switching to $BAND (UTC hour $HOUR)" >> "$WSPR_DIR/local/logs/band-rotation.log"
+LOG="$WSPR_DIR/local/logs/band-rotation.log"
+
+# Get current frequency from beacon (wait max 5 seconds for a line)
+# Use timeout to avoid hanging if beacon is unresponsive
+CURRENT_STATUS=$(timeout 5 make monitor 2>/dev/null | head -1)
+
+if [[ "$CURRENT_STATUS" =~ TX:.*[[:space:]]([0-9]+)[[:space:]]DONE ]]; then
+    CURRENT_FREQ="${BASH_REMATCH[1]}"
+
+    if [ "$CURRENT_FREQ" = "$TARGET_FREQ" ]; then
+        echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Already on $BAND ($TARGET_FREQ Hz), no change needed" >> "$LOG"
+        exit 0
+    fi
+
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Switching from ${CURRENT_FREQ}Hz to $BAND ($TARGET_FREQ Hz) (UTC hour $HOUR)" >> "$LOG"
+else
+    # Couldn't determine current band (beacon might be transmitting), switch anyway
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Could not determine current band, switching to $BAND (UTC hour $HOUR)" >> "$LOG"
+fi
 
 # Switch band (use make to get OS-aware device detection)
-cd "$WSPR_DIR" && make "$BAND" 2>&1 | head -20 >> "$WSPR_DIR/local/logs/band-rotation.log"
-echo "" >> "$WSPR_DIR/local/logs/band-rotation.log"
+make "$BAND" 2>&1 | head -20 >> "$LOG"
+echo "" >> "$LOG"
