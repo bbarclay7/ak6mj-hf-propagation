@@ -4,7 +4,7 @@ Quick setup checklist for FT8 data pipeline.
 
 ## Current Status
 
-- ✅ Web interface operational at https://shoeph.one/hf/
+- ✅ Web interface operational at https://www.shoeph.one/hf/
 - ✅ antenna.py library expects ALL.TXT data
 - ⏳ SSH access to hamtop1 WSL2 (needs setup)
 - ⏳ Automated data sync (needs setup)
@@ -120,7 +120,7 @@ ssh root@www 'ls -lh /var/www/local/ft8-tools/ALL.TXT'
 ssh root@www 'tail -20 /var/log/ft8-sync.log'
 
 # Check from web interface
-curl -sk https://shoeph.one/hf/ | grep -i "antenna"
+curl -sk https://www.shoeph.one/hf/ | grep -i "antenna"
 ```
 
 ## Troubleshooting

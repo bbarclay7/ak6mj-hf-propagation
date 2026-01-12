@@ -29,7 +29,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Configuration
-WWW_URL = "https://shoeph.one/hf/api/upload/alltxt"
+WWW_URL = "https://www.shoeph.one/hf/api/upload/alltxt"
 USERNAME = "ak6mj"
 PASSWORD = "HF73DX2026!"
 ALL_TXT_PATH = Path("/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT")
@@ -38,7 +38,7 @@ ALL_TXT_PATH = Path("/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT")
 def check_connection():
     """Test connection to www server."""
     try:
-        r = requests.get("https://shoeph.one/hf/health", timeout=10, verify=False)
+        r = requests.get("https://www.shoeph.one/hf/health", timeout=10, verify=False)
         r.raise_for_status()
         data = r.json()
         print(f"✓ Connection OK: {data['service']} v{data['version']}")

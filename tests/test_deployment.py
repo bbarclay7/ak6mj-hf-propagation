@@ -6,7 +6,7 @@
 # ]
 # ///
 """
-Test deployed antenna_web.py on shoeph.one
+Test deployed antenna_web.py on www.shoeph.one
 
 This suite tests the live deployment to verify:
 - All routes are accessible
@@ -21,11 +21,11 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 # Configuration
-BASE_URL = "https://shoeph.one/hf"
+BASE_URL = "https://www.shoeph.one/hf"
 USERNAME = "ak6mj"
 PASSWORD = "HF73DX2026!"
 
-# Disable SSL warnings for testing (shoeph.one has valid cert)
+# Disable SSL warnings for testing (www.shoeph.one has valid cert)
 requests.packages.urllib3.disable_warnings()
 
 

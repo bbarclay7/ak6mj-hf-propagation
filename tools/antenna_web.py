@@ -11,7 +11,7 @@
 Web interface for antenna comparison experiments - with proper proxy prefix support.
 
 Run with: uv run antenna_web.py
-Access at: http://localhost:5000 or behind proxy at https://shoeph.one/hf/
+Access at: http://localhost:5000 or behind proxy at https://www.shoeph.one/hf/
 """
 
 from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for

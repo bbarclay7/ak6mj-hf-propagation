@@ -201,7 +201,7 @@ nginx -t
 systemctl reload nginx
 ```
 
-Test: https://shoeph.one/hf/
+Test: https://www.shoeph.one/hf/
 
 ## Step 7: Update Deployment Script
 
@@ -284,7 +284,7 @@ curl https://shoeph.one/hf-health
 ## URLs
 
 After deployment:
-- Flask: https://shoeph.one/hf/
+- Flask: https://www.shoeph.one/hf/
 - Health: https://shoeph.one/hf-health
 - Streamlit: https://shoeph.one/hf-dash/ (if configured)
 
