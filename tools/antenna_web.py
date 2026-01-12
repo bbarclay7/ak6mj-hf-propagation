@@ -23,18 +23,19 @@ import os
 import antenna
 
 # Determine if running behind proxy at /hf/
-URL_PREFIX = os.getenv('URL_PREFIX', '')
+# APPLICATION_ROOT tells Flask what URL prefix to use when generating URLs
+# But we don't use url_prefix on the blueprint because the proxy strips it
+APPLICATION_ROOT = os.getenv('APPLICATION_ROOT', '')
 
 app = Flask(__name__)
 
 # Support running behind reverse proxy
-if URL_PREFIX:
+if APPLICATION_ROOT:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    app.config['APPLICATION_ROOT'] = URL_PREFIX
+    app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
 
-# Create blueprint with URL prefix
-# Note: name='main' to avoid prefixing endpoint names (keeps url_for('index') working in templates)
-bp = Blueprint('main', __name__, url_prefix=URL_PREFIX)
+# Create blueprint WITHOUT URL prefix (proxy handles that)
+bp = Blueprint('main', __name__)
 
 # Default test plan based on rybtest.md
 DEFAULT_PLAN = {
@@ -384,9 +385,9 @@ app.register_blueprint(bp)
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5000))
     print("Starting Antenna Comparison Web UI...")
-    if URL_PREFIX:
-        print(f"URL Prefix: {URL_PREFIX}")
-        print(f"Access at: http://localhost:{port}{URL_PREFIX}/")
+    if APPLICATION_ROOT:
+        print(f"Application Root: {APPLICATION_ROOT}")
+        print(f"Access at: http://localhost:{port}{APPLICATION_ROOT}/")
     else:
         print(f"Access at: http://localhost:{port}/")
     print("Or from other devices: http://<your-ip>:{port}/")
