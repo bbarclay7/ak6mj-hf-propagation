@@ -25,7 +25,7 @@
                     <td>{{ comp.grid or '-' }}</td>
                     <td>
                         {% if comp.has_report %}
-                        <a href="{{ url_for('analysis_page', comparison_id=comp.id) }}" class="btn btn-small">View</a>
+                        <a href="{{ url_for('main.analysis_page', comparison_id=comp.id) }}" class="btn btn-small">View</a>
                         {% else %}
                         <span class="badge">No report</span>
                         {% endif %}
@@ -38,7 +38,7 @@
     {% else %}
     <div class="card">
         <p>No comparisons yet. Run an experiment to create one.</p>
-        <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Start Experiment</a>
+        <a href="{{ url_for('main.experiment_page') }}" class="btn btn-primary">Start Experiment</a>
     </div>
     {% endif %}
 </div>

@@ -10,13 +10,13 @@
 <body>
     <nav class="navbar">
         <div class="nav-brand">
-            <a href="{{ url_for('index') }}">Antenna Compare</a>
+            <a href="{{ url_for('main.index') }}">Antenna Compare</a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}class="active"{% endif %}>Dashboard</a>
-            <a href="{{ url_for('experiment_page') }}" {% if request.endpoint == 'experiment_page' %}class="active"{% endif %}>Experiment</a>
-            <a href="{{ url_for('antennas_page') }}" {% if request.endpoint == 'antennas_page' %}class="active"{% endif %}>Antennas</a>
-            <a href="{{ url_for('comparisons_page') }}" {% if request.endpoint == 'comparisons_page' %}class="active"{% endif %}>History</a>
+            <a href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}class="active"{% endif %}>Dashboard</a>
+            <a href="{{ url_for('main.experiment_page') }}" {% if request.endpoint == 'main.experiment_page' %}class="active"{% endif %}>Experiment</a>
+            <a href="{{ url_for('main.antennas_page') }}" {% if request.endpoint == 'main.antennas_page' %}class="active"{% endif %}>Antennas</a>
+            <a href="{{ url_for('main.comparisons_page') }}" {% if request.endpoint == 'main.comparisons_page' %}class="active"{% endif %}>History</a>
         </div>
     </nav>
 

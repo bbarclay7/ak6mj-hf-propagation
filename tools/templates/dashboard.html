@@ -34,9 +34,9 @@
 
         <div class="status-actions">
             {% if not status.active %}
-            <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Start Experiment</a>
+            <a href="{{ url_for('main.experiment_page') }}" class="btn btn-primary">Start Experiment</a>
             {% else %}
-            <a href="{{ url_for('experiment_page') }}" class="btn btn-primary">Go to Experiment</a>
+            <a href="{{ url_for('main.experiment_page') }}" class="btn btn-primary">Go to Experiment</a>
             {% endif %}
         </div>
     </div>
@@ -80,7 +80,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p>No antennas defined. <a href="{{ url_for('antennas_page') }}">Add some</a>.</p>
+        <p>No antennas defined. <a href="{{ url_for('main.antennas_page') }}">Add some</a>.</p>
         {% endif %}
     </div>
 
@@ -91,7 +91,7 @@
         <ul class="comparison-list">
             {% for comp in comparisons %}
             <li>
-                <a href="{{ url_for('analysis_page', comparison_id=comp.id) }}">
+                <a href="{{ url_for('main.analysis_page', comparison_id=comp.id) }}">
                     {{ comp.id }}
                 </a>
                 {% if comp.antennas %}
@@ -100,7 +100,7 @@
             </li>
             {% endfor %}
         </ul>
-        <a href="{{ url_for('comparisons_page') }}" class="btn btn-secondary">View All</a>
+        <a href="{{ url_for('main.comparisons_page') }}" class="btn btn-secondary">View All</a>
         {% else %}
         <p>No comparisons yet. Run an experiment to create one.</p>
         {% endif %}
