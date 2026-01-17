@@ -301,17 +301,24 @@ a:hover {
 table {
     width: 100%;
     border-collapse: collapse;
+    border: 1px solid #0f3460;
 }
 
 th, td {
     padding: 0.75rem;
     text-align: left;
     border-bottom: 1px solid #0f3460;
+    border-right: 1px solid #0f3460;
+}
+
+th:last-child, td:last-child {
+    border-right: none;
 }
 
 th {
     color: #aaa;
     font-weight: normal;
+    background: #16213e;
 }
 
 /* Experiment page */
@@ -851,6 +858,7 @@ th {
 
 .bearing-table {
     width: 100%;
+    border: 1px solid #0f3460;
 }
 
 .bearing-table th {
@@ -860,11 +868,23 @@ th {
     font-size: 0.75rem;
     text-transform: uppercase;
     padding: 0.5rem;
+    border-bottom: 1px solid #0f3460;
+    border-right: 1px solid #0f3460;
+    background: #16213e;
+}
+
+.bearing-table th:last-child {
+    border-right: none;
 }
 
 .bearing-table td {
     padding: 0.5rem;
     border-bottom: 1px solid #0f3460;
+    border-right: 1px solid #0f3460;
+}
+
+.bearing-table td:last-child {
+    border-right: none;
 }
 
 .bearing-table tr.winner-idx-0 {
@@ -1252,19 +1272,27 @@ th {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    border: 1px solid #0f3460;
 }
 
 .dist-table th,
 .dist-table td {
     padding: 0.5rem 0.75rem;
     text-align: right;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #0f3460;
+    border-right: 1px solid #0f3460;
+}
+
+.dist-table th:last-child,
+.dist-table td:last-child {
+    border-right: none;
 }
 
 .dist-table th {
     color: #888;
     font-weight: normal;
     font-size: 0.8rem;
+    background: #16213e;
 }
 
 .dist-table th:first-child,
@@ -1317,11 +1345,23 @@ th {
 .direction-comparison-chart {
     overflow-x: auto;
     padding: 0.5rem 0;
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 1rem;
 }
 
 .direction-chart-svg {
     display: block;
     margin: 0 auto;
+}
+
+.direction-chart-svg text {
+    fill: #e0e0e0 !important;
+    font-weight: 500;
+}
+
+.direction-chart-svg line {
+    stroke: #555 !important;
 }
 
 /* Direction insights */
