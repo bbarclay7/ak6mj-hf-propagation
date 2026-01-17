@@ -23,7 +23,7 @@ from requests.auth import HTTPBasicAuth
 # Configuration
 BASE_URL = "https://www.shoeph.one/hf"
 USERNAME = "ak6mj"
-PASSWORD = "HF73DX2026!"
+PASSWORD = "73"
 
 # Disable SSL warnings for testing (www.shoeph.one has valid cert)
 requests.packages.urllib3.disable_warnings()

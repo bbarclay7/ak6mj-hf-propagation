@@ -118,12 +118,7 @@ def api_status():
 @bp.route("/api/antennas", methods=["GET"])
 def api_antennas_list():
     """List all antennas."""
-    result = antenna.get_antennas()
-    print(f"DEBUG api_antennas_list: antenna.DATA_DIR={antenna.DATA_DIR}", flush=True)
-    print(f"DEBUG api_antennas_list: antenna.ANTENNAS_FILE={antenna.ANTENNAS_FILE}", flush=True)
-    print(f"DEBUG api_antennas_list: file exists={antenna.ANTENNAS_FILE.exists()}", flush=True)
-    print(f"DEBUG api_antennas_list: result={result}", flush=True)
-    return jsonify(result)
+    return jsonify(antenna.get_antennas())
 
 
 @bp.route("/api/antennas", methods=["POST"])

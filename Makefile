@@ -15,12 +15,15 @@ CALL ?=
 GRID ?=
 POWER ?=
 
-.PHONY: help test monitor 160m 80m 40m 30m 20m 17m 15m 12m 10m 6m
+.PHONY: help test monitor 160m 80m 40m 30m 20m 17m 15m 12m 10m 6m push-www
 
 # Default target - show help
 help:
 	@echo "WSPR Beacon Management Targets"
 	@echo "=============================="
+	@echo ""
+	@echo "Deployment:"
+	@echo "  make push-www      Deploy web templates to www server"
 	@echo ""
 	@echo "Monitoring:"
 	@echo "  make monitor       Connect to serial port to monitor beacon (Ctrl-C to exit)"
@@ -94,3 +97,23 @@ ARGS = $(if $(CALL),-c $(CALL)) $(if $(GRID),-g $(GRID)) $(if $(POWER),-p $(POWE
 
 6m:
 	@./wspr_band.py 6m $(ARGS)
+
+# Deployment target - uses git pull on www (repo is public)
+push-www:
+	@echo "Deploying web app to www server via git pull..."
+	@echo ""
+	@echo "Step 1: Pushing to GitHub..."
+	@git push origin main
+	@echo ""
+	@echo "Step 2: Pulling on www server..."
+	@ssh hftools@www 'cd ~/repos/ak6mj-hf-propagation && git pull origin main'
+	@echo ""
+	@echo "Step 3: Committing deployment state..."
+	@ssh hftools@www 'cd /var/www/hf-tools && git add -A && git diff --cached --quiet || git commit -m "Deploy: web app via git pull at $$(date)"'
+	@echo ""
+	@echo "Step 4: Restarting service..."
+	@ssh root@www 'systemctl restart hf-web && systemctl status hf-web --no-pager | head -10'
+	@echo ""
+	@echo "✓ Deployment complete!"
+	@echo ""
+	@echo "Note: Templates and antenna_web.py are symlinked from ~/repos/ak6mj-hf-propagation/"

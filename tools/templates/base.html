@@ -17,6 +17,7 @@
             <a href="{{ url_for('main.experiment_page') }}" {% if request.endpoint == 'main.experiment_page' %}class="active"{% endif %}>Experiment</a>
             <a href="{{ url_for('main.antennas_page') }}" {% if request.endpoint == 'main.antennas_page' %}class="active"{% endif %}>Antennas</a>
             <a href="{{ url_for('main.comparisons_page') }}" {% if request.endpoint == 'main.comparisons_page' %}class="active"{% endif %}>History</a>
+            <a href="{{ url_for('main.wspr_page') }}" {% if request.endpoint == 'main.wspr_page' %}class="active"{% endif %}>WSPR</a>
         </div>
     </nav>
 
