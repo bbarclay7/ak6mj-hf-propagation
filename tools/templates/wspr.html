@@ -54,6 +54,40 @@
         font-weight: 600;
         color: #2563eb;
     }
+    #antenna-selector {
+        display: flex;
+        gap: 2rem;
+        align-items: start;
+        flex-wrap: wrap;
+    }
+    .antenna-info {
+        flex: 1;
+        min-width: 300px;
+    }
+    .antenna-name {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #4fc3f7;
+        margin-bottom: 0.5rem;
+    }
+    .antenna-desc {
+        color: #aaa;
+        margin-bottom: 0.5rem;
+        line-height: 1.6;
+    }
+    .antenna-updated {
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .antenna-controls {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        min-width: 300px;
+    }
+    .antenna-controls select {
+        flex: 1;
+    }
 </style>
 {% endblock %}
 
@@ -61,6 +95,23 @@
 <div class="wspr-page">
     <h1>WSPR Beacon Monitoring</h1>
     <p class="subtitle">Propagation tracking for AK6MJ beacon</p>
+
+    <div class="card">
+        <h2>Current Antenna</h2>
+        <div id="antenna-selector">
+            <div class="antenna-info" id="antenna-info">
+                <div class="antenna-name" id="antenna-name">Loading...</div>
+                <div class="antenna-desc" id="antenna-desc"></div>
+                <div class="antenna-updated" id="antenna-updated"></div>
+            </div>
+            <div class="antenna-controls">
+                <select id="antenna-select" class="form-control">
+                    <option value="">Select antenna...</option>
+                </select>
+                <button id="update-antenna-btn" class="btn btn-primary btn-small" onclick="updateWSPRAntenna()">Update</button>
+            </div>
+        </div>
+    </div>
 
     <div class="wspr-stats" id="stats">
         <div class="stat-card">
@@ -227,7 +278,97 @@ function gridToLatLon(grid) {
     return [lat, lon];
 }
 
+// Load current WSPR antenna
+async function loadWSPRAntenna() {
+    try {
+        const response = await fetch('{{ url_for("main.api_wspr_antenna_get") }}');
+        const data = await response.json();
+
+        if (data.antenna) {
+            document.getElementById('antenna-name').textContent = data.antenna;
+            document.getElementById('antenna-desc').textContent = data.description || '';
+            if (data.last_updated) {
+                const updated = new Date(data.last_updated);
+                document.getElementById('antenna-updated').textContent =
+                    'Updated: ' + updated.toLocaleString();
+            }
+        } else {
+            document.getElementById('antenna-name').textContent = 'Not configured';
+            document.getElementById('antenna-desc').textContent = '';
+            document.getElementById('antenna-updated').textContent = '';
+        }
+    } catch (error) {
+        console.error('Failed to load WSPR antenna:', error);
+        document.getElementById('antenna-name').textContent = 'Error loading antenna';
+    }
+}
+
+// Load available antennas for selector
+async function loadAntennas() {
+    try {
+        const response = await fetch('{{ url_for("main.api_antennas_list") }}');
+        const antennas = await response.json();
+
+        const select = document.getElementById('antenna-select');
+        select.innerHTML = '<option value="">Select antenna...</option>';
+
+        for (const [label, info] of Object.entries(antennas)) {
+            const option = document.createElement('option');
+            option.value = label;
+            option.textContent = `${label} - ${info.description.substring(0, 50)}...`;
+            select.appendChild(option);
+        }
+    } catch (error) {
+        console.error('Failed to load antennas:', error);
+    }
+}
+
+// Update WSPR antenna
+async function updateWSPRAntenna() {
+    const select = document.getElementById('antenna-select');
+    const antenna = select.value;
+
+    if (!antenna) {
+        alert('Please select an antenna');
+        return;
+    }
+
+    const btn = document.getElementById('update-antenna-btn');
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    try {
+        const response = await fetch('{{ url_for("main.api_wspr_antenna_set") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ antenna: antenna })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update antenna');
+        }
+
+        // Reload antenna display
+        await loadWSPRAntenna();
+
+        // Reset selector
+        select.value = '';
+        alert('WSPR antenna updated successfully');
+
+    } catch (error) {
+        console.error('Failed to update antenna:', error);
+        alert('Failed to update antenna: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Update';
+    }
+}
+
 // Load data on page load
+loadWSPRAntenna();
+loadAntennas();
 loadWSPRData();
 
 // Refresh every 5 minutes
