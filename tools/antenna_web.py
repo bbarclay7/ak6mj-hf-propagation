@@ -390,6 +390,61 @@ def api_wspr_spots():
     })
 
 
+@bp.route("/api/wspr/antenna", methods=["GET"])
+def api_wspr_antenna_get():
+    """Get current WSPR antenna."""
+    antenna_file = Path("/var/www/local/wspr-data/current_antenna.json")
+
+    # Check local dev fallback
+    if not antenna_file.exists():
+        antenna_file = Path.home() / "wspr-data" / "current_antenna.json"
+
+    if antenna_file.exists():
+        return send_file(antenna_file, mimetype='application/json')
+
+    return jsonify({
+        "antenna": None,
+        "description": None,
+        "last_updated": None,
+        "notes": "No antenna configured"
+    })
+
+
+@bp.route("/api/wspr/antenna", methods=["POST"])
+def api_wspr_antenna_set():
+    """Set current WSPR antenna."""
+    data = request.json
+    antenna_label = data.get("antenna")
+
+    if not antenna_label:
+        return jsonify({"error": "Antenna label required"}), 400
+
+    # Get antenna details from antennas list
+    antennas = antenna.get_antennas()
+    if antenna_label not in antennas:
+        return jsonify({"error": f"Unknown antenna: {antenna_label}"}), 400
+
+    antenna_info = antennas[antenna_label]
+
+    # Save to wspr-data directory
+    antenna_file = Path("/var/www/local/wspr-data/current_antenna.json")
+    antenna_file.parent.mkdir(parents=True, exist_ok=True)
+
+    wspr_antenna = {
+        "antenna": antenna_label,
+        "description": antenna_info["description"],
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "notes": data.get("notes", "")
+    }
+
+    antenna_file.write_text(json.dumps(wspr_antenna, indent=2))
+
+    return jsonify({
+        "success": True,
+        "antenna": wspr_antenna
+    })
+
+
 @bp.route("/health")
 def health():
     """Health check endpoint for monitoring."""
