@@ -14,28 +14,28 @@ Run with: uv run antenna_web.py
 Access at: http://localhost:5000 or behind proxy at https://www.shoeph.one/hf/
 """
 
-from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for, send_file
 from datetime import datetime, timezone
 from werkzeug.middleware.proxy_fix import ProxyFix
+from pathlib import Path
 import json
 import os
 
 import antenna
 
 # Determine if running behind proxy at /hf/
-# APPLICATION_ROOT tells Flask what URL prefix to use when generating URLs
-# But we don't use url_prefix on the blueprint because the proxy strips it
-APPLICATION_ROOT = os.getenv('APPLICATION_ROOT', '')
+# URL_PREFIX is used on the blueprint so Flask generates correct URLs
+# Proxy must preserve the path (ProxyPass /hf http://127.0.0.1:5000/hf)
+URL_PREFIX = os.getenv('URL_PREFIX', '')
 
 app = Flask(__name__)
 
 # Support running behind reverse proxy
-if APPLICATION_ROOT:
+if URL_PREFIX:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
 
-# Create blueprint WITHOUT URL prefix (proxy handles that)
-bp = Blueprint('main', __name__)
+# Create blueprint with URL prefix for correct URL generation
+bp = Blueprint('main', __name__, url_prefix=URL_PREFIX)
 
 # Default test plan based on rybtest.md
 DEFAULT_PLAN = {
@@ -97,6 +97,12 @@ def comparisons_page():
     """List all comparisons."""
     comparisons = antenna.list_comparisons()
     return render_template("comparisons.html", comparisons=comparisons)
+
+
+@bp.route("/wspr")
+def wspr_page():
+    """WSPR beacon monitoring dashboard."""
+    return render_template("wspr.html")
 
 
 # ============================================================
@@ -364,6 +370,26 @@ def api_clear():
     return jsonify({"success": True})
 
 
+@bp.route("/api/wspr/spots")
+def api_wspr_spots():
+    """Get recent WSPR spots from PSKReporter."""
+    spots_file = Path("/var/www/local/wspr-data/spots.json")
+
+    # Check local dev fallback
+    if not spots_file.exists():
+        spots_file = Path.home() / "wspr-data" / "spots.json"
+
+    if spots_file.exists():
+        return send_file(spots_file, mimetype='application/json')
+
+    return jsonify({
+        "callsign": "AK6MJ",
+        "tx_grid": None,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "spots": []
+    })
+
+
 @bp.route("/health")
 def health():
     """Health check endpoint for monitoring."""
@@ -385,9 +411,9 @@ app.register_blueprint(bp)
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5000))
     print("Starting Antenna Comparison Web UI...")
-    if APPLICATION_ROOT:
-        print(f"Application Root: {APPLICATION_ROOT}")
-        print(f"Access at: http://localhost:{port}{APPLICATION_ROOT}/")
+    if URL_PREFIX:
+        print(f"URL Prefix: {URL_PREFIX}")
+        print(f"Access at: http://localhost:{port}{URL_PREFIX}/")
     else:
         print(f"Access at: http://localhost:{port}/")
     print("Or from other devices: http://<your-ip>:{port}/")
