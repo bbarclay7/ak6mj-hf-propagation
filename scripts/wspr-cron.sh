@@ -1,7 +1,8 @@
 #!/bin/bash
-# WSPR beacon band rotation script
-# Simple UTC-based rotation - keeps it predictable and doesn't need sunrise calculations
-# Run from cron every 2 hours to rotate through bands
+# WSPR beacon band rotation script - Stochastic version
+# 20-minute slots with time-appropriate band pools
+# Run from cron every 20 minutes: */20 * * * *
+# Rotates through bands frequently to catch band openings
 # Idempotent: Only switches band if not already on the target band
 
 # Set PATH for cron environment (uv is typically in ~/.local/bin)
@@ -10,29 +11,53 @@ export PATH="$HOME/.local/bin:$PATH"
 WSPR_DIR="$HOME/work/ak6mj-hf-propagation"
 cd "$WSPR_DIR" || exit 1
 
-# Get current UTC hour (WSPR uses UTC)
-# Strip leading zero to avoid octal interpretation (08 -> 8)
+# Get current UTC time
+# Strip leading zeros to avoid octal interpretation
 HOUR=$(date -u +%H | sed 's/^0//')
+MINUTE=$(date -u +%M | sed 's/^0*//')
+DAY_OF_YEAR=$(date -u +%j | sed 's/^0*//')
 
-# Simple rotation based on UTC hour (changes every 2 hours)
-# This provides good coverage without needing sunrise calculations
-# Pattern optimized for general propagation (not location-specific)
+# Handle empty minute (00 becomes empty after sed)
+[ -z "$MINUTE" ] && MINUTE=0
 
-case $((HOUR / 2)) in
-    0)  BAND="20m" ;;   # 00-01 UTC = 4-5pm PST (sunset transition)
-    1)  BAND="40m" ;;   # 02-03 UTC = 6-7pm PST (evening)
-    2)  BAND="40m" ;;   # 04-05 UTC = 8-9pm PST (night)
-    3)  BAND="40m" ;;   # 06-07 UTC = 10-11pm PST (late night, 80m opens)
-    4)  BAND="40m" ;;   # 08-09 UTC = 12-1am PST (graveyard)
-    5)  BAND="80m" ;;   # 10-11 UTC = 2-3am PST (deep night)
-    6)  BAND="40m" ;;   # 12-13 UTC = 4-5am PST (pre-dawn)
-    7)  BAND="40m" ;;   # 14-15 UTC = 6-7am PST (sunrise)
-    8)  BAND="20m" ;;   # 16-17 UTC = 8-9am PST (morning, 20m opens)
-    9)  BAND="15m" ;;   # 18-19 UTC = 10-11am PST (15m peak, solar max)
-    10) BAND="15m" ;;   # 20-21 UTC = 12-1pm PST (midday, best antenna perf)
-    11) BAND="10m" ;;   # 22-23 UTC = 2-3pm PST (afternoon, 10m good at solar max)
-    *)  BAND="40m" ;;   # Fallback
-esac
+# Calculate 20-minute slot within hour (0, 1, or 2)
+SLOT_IN_HOUR=$((MINUTE / 20))
+
+# Define band pools for different times of day
+# Night:      40m, 80m, 30m (lower bands propagate at night)
+# Transition: 20m, 40m, 30m (sunrise/sunset, mixed conditions)
+# Day:        10m, 15m, 20m, 17m (higher bands for daytime skip)
+
+NIGHT_BANDS=("40m" "80m" "30m")
+TRANSITION_BANDS=("20m" "40m" "30m")
+DAY_BANDS=("10m" "15m" "20m" "17m")
+
+# Select pool based on UTC hour
+# UTC 04-12 = PST 8pm-4am (night)
+# UTC 12-16 = PST 4-8am (sunrise transition)
+# UTC 16-24 = PST 8am-4pm (day)
+# UTC 00-04 = PST 4-8pm (sunset transition)
+
+if [ "$HOUR" -ge 4 ] && [ "$HOUR" -lt 12 ]; then
+    POOL=("${NIGHT_BANDS[@]}")
+    POOL_NAME="night"
+elif [ "$HOUR" -ge 12 ] && [ "$HOUR" -lt 16 ]; then
+    POOL=("${TRANSITION_BANDS[@]}")
+    POOL_NAME="sunrise"
+elif [ "$HOUR" -ge 16 ] && [ "$HOUR" -lt 24 ]; then
+    POOL=("${DAY_BANDS[@]}")
+    POOL_NAME="day"
+else
+    # 00-04 UTC
+    POOL=("${TRANSITION_BANDS[@]}")
+    POOL_NAME="sunset"
+fi
+
+# Rotate through pool, using day-of-year to shuffle the starting point
+# This ensures variety across days while cycling through all bands in pool
+POOL_SIZE=${#POOL[@]}
+INDEX=$(( (DAY_OF_YEAR + HOUR * 3 + SLOT_IN_HOUR) % POOL_SIZE ))
+BAND=${POOL[$INDEX]}
 
 # Sanity check: ensure BAND is set
 if [ -z "$BAND" ]; then
@@ -70,14 +95,14 @@ if [[ "$CURRENT_STATUS" =~ TX:.*[[:space:]]([0-9]+)[[:space:]]DONE ]]; then
     CURRENT_FREQ="${BASH_REMATCH[1]}"
 
     if [ "$CURRENT_FREQ" = "$TARGET_FREQ" ]; then
-        echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Already on $BAND ($TARGET_FREQ Hz), no change needed" >> "$LOG"
+        echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Already on $BAND, no change (pool=$POOL_NAME, slot=$SLOT_IN_HOUR)" >> "$LOG"
         exit 0
     fi
 
-    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Switching from ${CURRENT_FREQ}Hz to $BAND ($TARGET_FREQ Hz) (UTC hour $HOUR)" >> "$LOG"
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Switching to $BAND (pool=$POOL_NAME, slot=$SLOT_IN_HOUR, from ${CURRENT_FREQ}Hz)" >> "$LOG"
 else
     # Couldn't determine current band (beacon might be transmitting), switch anyway
-    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Could not determine current band, switching to $BAND (UTC hour $HOUR)" >> "$LOG"
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Switching to $BAND (pool=$POOL_NAME, slot=$SLOT_IN_HOUR, status unknown)" >> "$LOG"
 fi
 
 # Switch band (use make to get OS-aware device detection)
