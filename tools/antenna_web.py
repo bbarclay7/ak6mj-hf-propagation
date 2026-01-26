@@ -105,6 +105,12 @@ def wspr_page():
     return render_template("wspr.html")
 
 
+@bp.route("/wspr/compare")
+def wspr_compare_page():
+    """WSPR antenna comparison dashboard."""
+    return render_template("wspr_compare.html")
+
+
 # ============================================================
 # API Routes
 # ============================================================
@@ -418,6 +424,100 @@ def api_wspr_beacon():
         "status": "unknown",
         "band": None,
         "error": "Beacon status file not found"
+    })
+
+
+@bp.route("/api/wspr/compare")
+def api_wspr_compare():
+    """Get WSPR antenna comparison data from wspr.live."""
+    import urllib.request
+    from collections import defaultdict
+
+    # Antenna switch time: Jan 25 4pm PST = Jan 26 00:00 UTC
+    SWITCH_TIME = datetime(2026, 1, 26, 0, 0, 0, tzinfo=timezone.utc)
+
+    # Query wspr.live for historical data
+    url = "http://db1.wspr.live/?query=SELECT%20time,%20band,%20snr,%20distance,%20rx_sign,%20azimuth%20FROM%20wspr.rx%20WHERE%20tx_sign%20%3D%20%27AK6MJ%27%20AND%20time%20%3E%3D%20%272026-01-12%27%20ORDER%20BY%20time%20FORMAT%20JSON"
+
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            data = json.load(resp)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch from wspr.live: {e}"}), 500
+
+    spots = data.get("data", [])
+
+    # Split by antenna
+    ant_80ef1 = []
+    ant_ryb = []
+    for s in spots:
+        ts = datetime.strptime(s["time"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        s["_hour"] = ts.hour
+        if ts < SWITCH_TIME:
+            ant_80ef1.append(s)
+        else:
+            ant_ryb.append(s)
+
+    # Time-match: only compare same hours
+    ryb_hours = set(s["_hour"] for s in ant_ryb) if ant_ryb else set()
+    ant_80ef1_matched = [s for s in ant_80ef1 if s["_hour"] in ryb_hours]
+
+    def summarize_by_band(spots):
+        by_band = defaultdict(lambda: {"snrs": [], "dists": [], "reporters": set()})
+        for s in spots:
+            b = by_band[s["band"]]
+            b["snrs"].append(s["snr"])
+            b["dists"].append(s["distance"])
+            b["reporters"].add(s["rx_sign"])
+        result = {}
+        for band, data in by_band.items():
+            result[band] = {
+                "avg_snr": sum(data["snrs"]) / len(data["snrs"]) if data["snrs"] else None,
+                "max_dist": max(data["dists"]) if data["dists"] else 0,
+                "spots": len(data["snrs"]),
+                "reporters": len(data["reporters"])
+            }
+        return result
+
+    def direction_bucket(azimuth):
+        dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        idx = int((azimuth + 22.5) / 45) % 8
+        return dirs[idx]
+
+    def summarize_by_direction(spots, band_filter=None):
+        by_dir = defaultdict(list)
+        for s in spots:
+            if band_filter and s["band"] != band_filter:
+                continue
+            by_dir[direction_bucket(s["azimuth"])].append(s["snr"])
+        return {d: sum(snrs)/len(snrs) if snrs else None for d, snrs in by_dir.items()}
+
+    # Get time ranges
+    times_80ef1 = [s["time"] for s in ant_80ef1]
+    times_ryb = [s["time"] for s in ant_ryb]
+
+    return jsonify({
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "switch_time": SWITCH_TIME.isoformat(),
+        "antennas": {
+            "80ef1": {
+                "description": "80m EFHW with 49:1 unun, vertical to 30', wire WSW/NNW",
+                "total_spots": len(ant_80ef1),
+                "matched_spots": len(ant_80ef1_matched),
+                "time_range": [min(times_80ef1), max(times_80ef1)] if times_80ef1 else None,
+                "by_band": summarize_by_band(ant_80ef1_matched),
+                "by_direction_40m": summarize_by_direction(ant_80ef1_matched, 7)
+            },
+            "ryb": {
+                "description": "Rybakov 25ft vertical whip, 4:1 unun",
+                "total_spots": len(ant_ryb),
+                "matched_spots": len(ant_ryb),
+                "time_range": [min(times_ryb), max(times_ryb)] if times_ryb else None,
+                "by_band": summarize_by_band(ant_ryb),
+                "by_direction_40m": summarize_by_direction(ant_ryb, 7)
+            }
+        },
+        "comparison_note": "Time-matched comparison (same UTC hours only) to reduce propagation bias"
     })
 
 
