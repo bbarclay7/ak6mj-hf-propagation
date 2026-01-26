@@ -91,11 +91,30 @@ LOG="$WSPR_DIR/local/logs/band-rotation.log"
 # Use timeout to avoid hanging if beacon is unresponsive
 CURRENT_STATUS=$(timeout 5 make monitor 2>/dev/null | head -1)
 
+# Function to write and push beacon status
+write_beacon_status() {
+    STATUS_FILE="$WSPR_DIR/local/wspr-data/beacon_status.json"
+    mkdir -p "$(dirname "$STATUS_FILE")"
+    cat > "$STATUS_FILE" << EOJSON
+{
+  "band": "$BAND",
+  "frequency_hz": $TARGET_FREQ,
+  "pool": "$POOL_NAME",
+  "slot": $SLOT_IN_HOUR,
+  "last_updated": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "status": "active"
+}
+EOJSON
+    # Push status to www server (disarray -> www, not the reverse for security)
+    scp -q "$STATUS_FILE" hftools@www:/var/www/local/wspr-data/beacon_status.json 2>/dev/null || true
+}
+
 if [[ "$CURRENT_STATUS" =~ TX:.*[[:space:]]([0-9]+)[[:space:]]DONE ]]; then
     CURRENT_FREQ="${BASH_REMATCH[1]}"
 
     if [ "$CURRENT_FREQ" = "$TARGET_FREQ" ]; then
         echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') - Already on $BAND, no change (pool=$POOL_NAME, slot=$SLOT_IN_HOUR)" >> "$LOG"
+        write_beacon_status
         exit 0
     fi
 
@@ -109,19 +128,5 @@ fi
 make "$BAND" 2>&1 | head -20 >> "$LOG"
 echo "" >> "$LOG"
 
-# Write beacon status file for web dashboard
-STATUS_FILE="$WSPR_DIR/local/wspr-data/beacon_status.json"
-mkdir -p "$(dirname "$STATUS_FILE")"
-cat > "$STATUS_FILE" << EOJSON
-{
-  "band": "$BAND",
-  "frequency_hz": $TARGET_FREQ,
-  "pool": "$POOL_NAME",
-  "slot": $SLOT_IN_HOUR,
-  "last_updated": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "status": "active"
-}
-EOJSON
-
-# Push status to www server (disarray -> www, not the reverse for security)
-scp -q "$STATUS_FILE" hftools@www:/var/www/local/wspr-data/beacon_status.json 2>/dev/null || true
+# Write and push beacon status after band switch
+write_beacon_status
