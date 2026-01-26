@@ -108,3 +108,20 @@ fi
 # Switch band (use make to get OS-aware device detection)
 make "$BAND" 2>&1 | head -20 >> "$LOG"
 echo "" >> "$LOG"
+
+# Write beacon status file for web dashboard
+STATUS_FILE="$WSPR_DIR/local/wspr-data/beacon_status.json"
+mkdir -p "$(dirname "$STATUS_FILE")"
+cat > "$STATUS_FILE" << EOJSON
+{
+  "band": "$BAND",
+  "frequency_hz": $TARGET_FREQ,
+  "pool": "$POOL_NAME",
+  "slot": $SLOT_IN_HOUR,
+  "last_updated": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "status": "active"
+}
+EOJSON
+
+# Push status to www server (disarray -> www, not the reverse for security)
+scp -q "$STATUS_FILE" hftools@www:/var/www/local/wspr-data/beacon_status.json 2>/dev/null || true

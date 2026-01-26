@@ -88,6 +88,14 @@
     .antenna-controls select {
         flex: 1;
     }
+    .stat-detail {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 0.25rem;
+    }
+    .beacon-active { border-left: 4px solid #16a34a; }
+    .beacon-stale { border-left: 4px solid #ca8a04; }
+    .beacon-offline { border-left: 4px solid #dc2626; }
 </style>
 {% endblock %}
 
@@ -114,6 +122,11 @@
     </div>
 
     <div class="wspr-stats" id="stats">
+        <div class="stat-card" id="beacon-status-card">
+            <div class="stat-value" id="stat-band">-</div>
+            <div class="stat-label">Beacon Band</div>
+            <div class="stat-detail" id="stat-band-detail"></div>
+        </div>
         <div class="stat-card">
             <div class="stat-value" id="stat-total">-</div>
             <div class="stat-label">Total Spots</div>
@@ -366,12 +379,45 @@ async function updateWSPRAntenna() {
     }
 }
 
+// Load beacon status (band, frequency, etc)
+async function loadBeaconStatus() {
+    const card = document.getElementById('beacon-status-card');
+    const bandEl = document.getElementById('stat-band');
+    const detailEl = document.getElementById('stat-band-detail');
+
+    try {
+        const response = await fetch('{{ url_for("main.api_wspr_beacon") }}');
+        const data = await response.json();
+
+        if (data.status === 'unknown' || data.error) {
+            bandEl.textContent = '?';
+            detailEl.textContent = 'Beacon offline or unreachable';
+            card.className = 'stat-card beacon-offline';
+        } else if (data.stale) {
+            bandEl.textContent = data.band || '?';
+            detailEl.textContent = `Stale (${Math.round(data.age_minutes)}min ago)`;
+            card.className = 'stat-card beacon-stale';
+        } else {
+            bandEl.textContent = data.band;
+            detailEl.textContent = `${data.pool} pool`;
+            card.className = 'stat-card beacon-active';
+        }
+    } catch (error) {
+        console.error('Failed to load beacon status:', error);
+        bandEl.textContent = '?';
+        detailEl.textContent = 'Error loading status';
+        card.className = 'stat-card beacon-offline';
+    }
+}
+
 // Load data on page load
+loadBeaconStatus();
 loadWSPRAntenna();
 loadAntennas();
 loadWSPRData();
 
 // Refresh every 5 minutes
 setInterval(loadWSPRData, 5 * 60 * 1000);
+setInterval(loadBeaconStatus, 60 * 1000);  // Refresh beacon status every minute
 </script>
 {% endblock %}

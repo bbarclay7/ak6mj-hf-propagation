@@ -390,6 +390,37 @@ def api_wspr_spots():
     })
 
 
+@bp.route("/api/wspr/beacon")
+def api_wspr_beacon():
+    """Get current WSPR beacon status (band, frequency, etc)."""
+    status_file = Path("/var/www/local/wspr-data/beacon_status.json")
+
+    # Check local dev fallback
+    if not status_file.exists():
+        status_file = Path.home() / "work/ak6mj-hf-propagation/local/wspr-data/beacon_status.json"
+
+    if status_file.exists():
+        try:
+            data = json.loads(status_file.read_text())
+            # Check if status is stale (more than 30 min old)
+            last_updated = datetime.fromisoformat(data.get("last_updated", "").replace("Z", "+00:00"))
+            age_minutes = (datetime.now(timezone.utc) - last_updated).total_seconds() / 60
+            data["stale"] = age_minutes > 30
+            data["age_minutes"] = round(age_minutes, 1)
+            return jsonify(data)
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({
+                "status": "error",
+                "error": f"Failed to parse beacon status: {e}"
+            })
+
+    return jsonify({
+        "status": "unknown",
+        "band": None,
+        "error": "Beacon status file not found"
+    })
+
+
 @bp.route("/api/wspr/antenna", methods=["GET"])
 def api_wspr_antenna_get():
     """Get current WSPR antenna."""
