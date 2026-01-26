@@ -492,6 +492,16 @@ def api_wspr_compare():
             by_dir[direction_bucket(s["azimuth"])].append(s["snr"])
         return {d: sum(snrs)/len(snrs) if snrs else None for d, snrs in by_dir.items()}
 
+    def summarize_directions_all_bands(spots):
+        """Get direction analysis for all bands."""
+        by_band_dir = defaultdict(lambda: defaultdict(list))
+        for s in spots:
+            by_band_dir[s["band"]][direction_bucket(s["azimuth"])].append(s["snr"])
+        result = {}
+        for band, dirs in by_band_dir.items():
+            result[band] = {d: sum(snrs)/len(snrs) if snrs else None for d, snrs in dirs.items()}
+        return result
+
     # Get time ranges
     times_80ef1 = [s["time"] for s in ant_80ef1]
     times_ryb = [s["time"] for s in ant_ryb]
@@ -506,7 +516,7 @@ def api_wspr_compare():
                 "matched_spots": len(ant_80ef1_matched),
                 "time_range": [min(times_80ef1), max(times_80ef1)] if times_80ef1 else None,
                 "by_band": summarize_by_band(ant_80ef1_matched),
-                "by_direction_40m": summarize_by_direction(ant_80ef1_matched, 7)
+                "by_direction": summarize_directions_all_bands(ant_80ef1_matched)
             },
             "ryb": {
                 "description": "Rybakov 25ft vertical whip, 4:1 unun",
@@ -514,7 +524,7 @@ def api_wspr_compare():
                 "matched_spots": len(ant_ryb),
                 "time_range": [min(times_ryb), max(times_ryb)] if times_ryb else None,
                 "by_band": summarize_by_band(ant_ryb),
-                "by_direction_40m": summarize_by_direction(ant_ryb, 7)
+                "by_direction": summarize_directions_all_bands(ant_ryb)
             }
         },
         "comparison_note": "Time-matched comparison (same UTC hours only) to reduce propagation bias"

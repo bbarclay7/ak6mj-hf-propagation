@@ -170,10 +170,10 @@
     </div>
 
     <div class="card">
-        <h2>Direction Analysis (40m)</h2>
+        <h2>Direction Analysis</h2>
         <p class="text-muted">SNR delta by direction (positive = ryb better, negative = 80ef1 better)</p>
-        <div class="direction-grid" id="direction-grid">
-            <!-- Filled by JS -->
+        <div id="direction-grids">
+            <!-- Filled by JS - one grid per band -->
         </div>
     </div>
 
@@ -267,30 +267,52 @@ async function loadComparison() {
         });
         document.getElementById('band-table-body').innerHTML = tableHtml;
 
-        // Direction grid
+        // Direction grids for all bands
         const dirs = ['NW', 'N', 'NE', 'W', '', 'E', 'SW', 'S', 'SE'];
-        const dir80 = a80.by_direction_40m || {};
-        const dirryb = aryb.by_direction_40m || {};
+        const dir80 = a80.by_direction || {};
+        const dirryb = aryb.by_direction || {};
 
-        let dirHtml = '';
-        dirs.forEach(d => {
-            if (d === '') {
-                dirHtml += '<div class="direction-cell center">40m</div>';
-            } else {
-                const s80 = dir80[d];
-                const sryb = dirryb[d];
-                let delta = null, deltaClass = '';
-                if (s80 !== null && s80 !== undefined && sryb !== null && sryb !== undefined) {
-                    delta = sryb - s80;
-                    deltaClass = delta > 0 ? 'dir-positive' : 'dir-negative';
+        // Get bands that have direction data in both antennas
+        const dirBands = new Set([
+            ...Object.keys(dir80).map(Number),
+            ...Object.keys(dirryb).map(Number)
+        ]);
+
+        let allDirHtml = '';
+        [...dirBands].sort((a,b) => a-b).forEach(band => {
+            const bandDir80 = dir80[band] || {};
+            const bandDirRyb = dirryb[band] || {};
+
+            // Only show if both have data for this band
+            if (Object.keys(bandDir80).length === 0 && Object.keys(bandDirRyb).length === 0) return;
+
+            let dirHtml = `<div style="display:inline-block;margin:1rem;vertical-align:top;">
+                <h4 style="text-align:center;margin-bottom:0.5rem;">${BAND_NAMES[band] || band + 'm'}</h4>
+                <div class="direction-grid">`;
+
+            dirs.forEach(d => {
+                if (d === '') {
+                    dirHtml += `<div class="direction-cell center">${BAND_NAMES[band] || band}</div>`;
+                } else {
+                    const s80 = bandDir80[d];
+                    const sryb = bandDirRyb[d];
+                    let delta = null, deltaClass = '';
+                    if (s80 !== null && s80 !== undefined && sryb !== null && sryb !== undefined) {
+                        delta = sryb - s80;
+                        deltaClass = delta > 0 ? 'dir-positive' : 'dir-negative';
+                    }
+                    dirHtml += `<div class="direction-cell">
+                        <div class="dir-label">${d}</div>
+                        <div class="dir-value ${deltaClass}">${delta !== null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) : '-'}</div>
+                    </div>`;
                 }
-                dirHtml += `<div class="direction-cell">
-                    <div class="dir-label">${d}</div>
-                    <div class="dir-value ${deltaClass}">${delta !== null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) : '-'}</div>
-                </div>`;
-            }
+            });
+
+            dirHtml += '</div></div>';
+            allDirHtml += dirHtml;
         });
-        document.getElementById('direction-grid').innerHTML = dirHtml;
+
+        document.getElementById('direction-grids').innerHTML = allDirHtml || '<p>No direction data available yet</p>';
 
         // Update refresh time
         document.getElementById('last-refresh').textContent =
