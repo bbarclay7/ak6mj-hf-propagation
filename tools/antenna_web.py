@@ -432,9 +432,41 @@ def api_wspr_compare():
     """Get WSPR antenna comparison data from wspr.live."""
     import urllib.request
     from collections import defaultdict
+    from bisect import bisect_right
+
+    # Get filter parameters
+    max_kp = request.args.get('max_kp', type=float)
 
     # Antenna switch time: Jan 25 4pm PST = Jan 26 00:00 UTC
     SWITCH_TIME = datetime(2026, 1, 26, 0, 0, 0, tzinfo=timezone.utc)
+
+    # Load Kp history for condition filtering
+    kp_data = []
+    kp_file = Path("/var/www/local/wspr-data/kp_history.json")
+    if not kp_file.exists():
+        kp_file = Path.home() / "work/ak6mj-hf-propagation/local/wspr-data/kp_history.json"
+    if kp_file.exists():
+        try:
+            with open(kp_file) as f:
+                kp_json = json.load(f)
+            kp_data = [(datetime.fromisoformat(r["timestamp"]), r["kp"]) for r in kp_json.get("records", [])]
+            kp_data.sort(key=lambda x: x[0])
+        except Exception:
+            pass
+
+    def get_kp_for_time(ts):
+        """Get Kp value for a given timestamp (finds nearest 3-hour block)."""
+        if not kp_data:
+            return None
+        # Binary search for nearest Kp reading
+        times = [k[0] for k in kp_data]
+        idx = bisect_right(times, ts)
+        if idx == 0:
+            return kp_data[0][1]
+        if idx >= len(kp_data):
+            return kp_data[-1][1]
+        # Return the Kp from the period containing this time
+        return kp_data[idx - 1][1]
 
     # Query wspr.live for historical data
     url = "http://db1.wspr.live/?query=SELECT%20time,%20band,%20snr,%20distance,%20rx_sign,%20azimuth%20FROM%20wspr.rx%20WHERE%20tx_sign%20%3D%20%27AK6MJ%27%20AND%20time%20%3E%3D%20%272026-01-12%27%20ORDER%20BY%20time%20FORMAT%20JSON"
@@ -447,13 +479,24 @@ def api_wspr_compare():
 
     spots = data.get("data", [])
 
+    # Tag spots with Kp and optionally filter
+    filtered_spots = []
+    for s in spots:
+        ts = datetime.strptime(s["time"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        s["_ts"] = ts
+        s["_kp"] = get_kp_for_time(ts)
+        if max_kp is not None and s["_kp"] is not None and s["_kp"] > max_kp:
+            continue
+        filtered_spots.append(s)
+
+    spots = filtered_spots
+
     # Split by antenna
     ant_80ef1 = []
     ant_ryb = []
     for s in spots:
-        ts = datetime.strptime(s["time"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        s["_hour"] = ts.hour
-        if ts < SWITCH_TIME:
+        s["_hour"] = s["_ts"].hour
+        if s["_ts"] < SWITCH_TIME:
             ant_80ef1.append(s)
         else:
             ant_ryb.append(s)
@@ -506,9 +549,19 @@ def api_wspr_compare():
     times_80ef1 = [s["time"] for s in ant_80ef1]
     times_ryb = [s["time"] for s in ant_ryb]
 
+    # Build filter description
+    filters_applied = ["Time-matched (same UTC hours)"]
+    if max_kp is not None:
+        filters_applied.append(f"Kp <= {max_kp}")
+
     return jsonify({
         "generated": datetime.now(timezone.utc).isoformat(),
         "switch_time": SWITCH_TIME.isoformat(),
+        "filters": {
+            "max_kp": max_kp,
+            "kp_data_available": len(kp_data) > 0,
+            "description": ", ".join(filters_applied)
+        },
         "antennas": {
             "80ef1": {
                 "description": "80m EFHW with 49:1 unun, vertical to 30', wire WSW/NNW",
@@ -527,7 +580,7 @@ def api_wspr_compare():
                 "by_direction": summarize_directions_all_bands(ant_ryb)
             }
         },
-        "comparison_note": "Time-matched comparison (same UTC hours only) to reduce propagation bias"
+        "comparison_note": ", ".join(filters_applied)
     })
 
 

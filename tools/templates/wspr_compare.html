@@ -110,6 +110,23 @@
         </div>
     </div>
 
+    <div class="card" style="margin-bottom:1rem;">
+        <h3 style="margin-top:0;">Filters</h3>
+        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+            <label>
+                Max Kp:
+                <select id="kp-filter" onchange="loadComparison()">
+                    <option value="">All conditions</option>
+                    <option value="1">Kp &le; 1 (Very quiet)</option>
+                    <option value="2">Kp &le; 2 (Quiet)</option>
+                    <option value="3">Kp &le; 3 (Unsettled)</option>
+                    <option value="4">Kp &le; 4 (Active)</option>
+                </select>
+            </label>
+            <span id="filter-status" style="color:#888; font-size:0.85rem;"></span>
+        </div>
+    </div>
+
     <div class="caveat-box">
         <h4>Data Collection In Progress</h4>
         <p id="caveat-text">Comparison accuracy improves as more data is collected for both antennas under similar conditions.</p>
@@ -196,12 +213,26 @@ async function loadComparison() {
     document.getElementById('antenna-stats').classList.add('loading');
 
     try {
-        const response = await fetch('{{ url_for("main.api_wspr_compare") }}');
+        // Build URL with filter parameters
+        let url = '{{ url_for("main.api_wspr_compare") }}';
+        const maxKp = document.getElementById('kp-filter').value;
+        if (maxKp) {
+            url += '?max_kp=' + maxKp;
+        }
+
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.error) {
             alert('Error: ' + data.error);
             return;
+        }
+
+        // Update filter status
+        const filterStatus = document.getElementById('filter-status');
+        if (data.filters) {
+            filterStatus.textContent = data.filters.kp_data_available ?
+                'Kp data available' : 'No Kp data (filtering unavailable)';
         }
 
         // Update stats
