@@ -14,10 +14,13 @@
         </div>
         <div class="nav-links">
             <a href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}class="active"{% endif %}>Dashboard</a>
-            <a href="{{ url_for('main.experiment_page') }}" {% if request.endpoint == 'main.experiment_page' %}class="active"{% endif %}>Experiment</a>
             <a href="{{ url_for('main.antennas_page') }}" {% if request.endpoint == 'main.antennas_page' %}class="active"{% endif %}>Antennas</a>
-            <a href="{{ url_for('main.comparisons_page') }}" {% if request.endpoint == 'main.comparisons_page' %}class="active"{% endif %}>History</a>
+            <span class="nav-divider">|</span>
+            <a href="{{ url_for('main.experiment_page') }}" {% if request.endpoint == 'main.experiment_page' %}class="active"{% endif %}>FT8 Test</a>
+            <a href="{{ url_for('main.comparisons_page') }}" {% if request.endpoint == 'main.comparisons_page' %}class="active"{% endif %}>FT8 History</a>
+            <span class="nav-divider">|</span>
             <a href="{{ url_for('main.wspr_page') }}" {% if request.endpoint == 'main.wspr_page' %}class="active"{% endif %}>WSPR</a>
+            <a href="{{ url_for('main.wspr_compare_page') }}" {% if request.endpoint == 'main.wspr_compare_page' %}class="active"{% endif %}>WSPR Compare</a>
         </div>
     </nav>
 
