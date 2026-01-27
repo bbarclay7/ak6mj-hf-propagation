@@ -119,3 +119,32 @@ See: [WSJT-X NetworkMessage.hpp](https://github.com/roelandjansen/wsjt-x/blob/ma
 |-----|------|--------|------|-------------|
 | CN88ra | CN88 | Island | NA-065 | Freeland, WA |
 | CM98kq | CM98 | Sacramento | (none) | Folsom, CA |
+
+## Future Enhancements
+
+### WSPR Antenna Comparison
+
+The current WSPR comparison (`/hf/wspr/compare`) is hardcoded to compare two specific antennas (80ef1 vs ryb) with a fixed switch time. To match the flexibility of the FT8 antenna comparison system:
+
+1. **Multiple antennas** - Allow defining and comparing any number of antennas, not just two
+2. **Dynamic antenna selection** - UI dropdown to select which antennas to compare
+3. **Multiple QTH support** - Filter comparison data by grid square (tx_loc from wspr.live)
+   - CM98 = Folsom QTH
+   - CN88 = Freeland QTH
+4. **Antenna history from file** - Read time periods from `antenna_history.json` instead of hardcoded switch times
+5. **Multiple switches** - Support A→B→A→C patterns over time
+6. **Solar condition normalization** - Weight/group comparisons by K-index, SFI to account for propagation variability
+
+### Data Model
+
+```
+QTH (grid)
+  └── Antenna
+        └── Time periods active
+              └── Spots (from wspr.live, filtered by tx_loc)
+```
+
+This would allow questions like:
+- "Compare ryb vs efhw at CM98 during quiet conditions (K≤2)"
+- "Compare same antenna at CM98 vs CN88"
+- "Show all antennas tested at Freeland"
