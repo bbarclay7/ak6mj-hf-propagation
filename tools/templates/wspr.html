@@ -12,16 +12,22 @@
         margin-bottom: 2rem;
     }
     #azimuthal-map {
+        width: 100%;
         display: flex;
         justify-content: center;
-        margin: 1rem 0;
         overflow: hidden;
+    }
+    #azimuthal-map svg {
+        max-width: 100%;
+        height: auto;
     }
     .az-controls {
         display: flex;
-        gap: 0.5rem;
+        gap: 1rem;
         margin-bottom: 0.5rem;
+        align-items: center;
         justify-content: center;
+        flex-wrap: wrap;
     }
     .az-controls button {
         padding: 0.25rem 0.75rem;
@@ -33,6 +39,20 @@
     }
     .az-controls button:hover {
         background: #3a3a3a;
+    }
+    .az-slider-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .az-slider-container input[type="range"] {
+        width: 200px;
+        cursor: pointer;
+    }
+    .az-slider-label {
+        color: #888;
+        font-size: 0.85rem;
+        min-width: 80px;
     }
     .map-tabs {
         display: flex;
@@ -202,8 +222,11 @@
         </div>
         <div id="azimuthal-container">
             <div class="az-controls">
-                <button onclick="azZoom(1.5)">Zoom In</button>
-                <button onclick="azZoom(1/1.5)">Zoom Out</button>
+                <div class="az-slider-container">
+                    <span class="az-slider-label">Range:</span>
+                    <input type="range" id="az-zoom-slider" min="1000" max="20000" step="500" value="20000" oninput="azSliderChange(this.value)">
+                    <span class="az-slider-label" id="az-range-label">20,000 km</span>
+                </div>
                 <button onclick="azReset()">Reset</button>
             </div>
             <div id="azimuthal-map"></div>
@@ -348,9 +371,26 @@ let azMaxDist = 20000;  // Start at 20,000 km (half Earth)
 const AZ_MIN_DIST = 1000;   // Minimum 1,000 km
 const AZ_MAX_DIST = 20000;  // Maximum 20,000 km
 
+function updateAzSlider() {
+    const slider = document.getElementById('az-zoom-slider');
+    const label = document.getElementById('az-range-label');
+    if (slider) slider.value = azMaxDist;
+    if (label) label.textContent = azMaxDist >= 1000 ? (azMaxDist / 1000).toFixed(0) + ',000 km' : azMaxDist + ' km';
+}
+
+function azSliderChange(value) {
+    azMaxDist = parseInt(value);
+    updateAzSlider();
+    if (cachedWSPRData) {
+        renderAzimuthalWSPR(cachedWSPRData);
+    }
+}
+
 function azZoom(factor) {
     azMaxDist = azMaxDist / factor;
     azMaxDist = Math.max(AZ_MIN_DIST, Math.min(AZ_MAX_DIST, azMaxDist));
+    azMaxDist = Math.round(azMaxDist / 500) * 500; // Snap to 500km increments
+    updateAzSlider();
     if (cachedWSPRData) {
         renderAzimuthalWSPR(cachedWSPRData);
     }
@@ -358,6 +398,7 @@ function azZoom(factor) {
 
 function azReset() {
     azMaxDist = 20000;
+    updateAzSlider();
     if (cachedWSPRData) {
         renderAzimuthalWSPR(cachedWSPRData);
     }
@@ -451,40 +492,48 @@ function renderAzimuthalWSPR(data) {
     }
     const [centerLat, centerLon] = txCoords;
 
-    // SVG dimensions
-    const size = 600;
+    // SVG dimensions - use viewBox for responsive sizing
+    const size = 700;
     const cx = size / 2;
     const cy = size / 2;
-    const maxRadius = size / 2 - 50;
+    const maxRadius = size / 2 - 40;
     const maxDist = azMaxDist; // Use current zoom level
     const distScale = maxRadius / maxDist;
 
-    let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
+    // Responsive SVG that fills container width (up to max)
+    let svg = `<svg viewBox="0 0 ${size} ${size}" style="width: 100%; max-width: ${size}px; height: auto;">`;
 
     // Background
     svg += `<circle cx="${cx}" cy="${cy}" r="${maxRadius}" fill="#1a1a2e" stroke="#333"/>`;
 
-    // Draw continent outlines
-    for (const outline of continentOutlines) {
-        let pathParts = [];
-        let lastInBounds = false;
-        for (let i = 0; i < outline.length; i++) {
-            const [lon, lat] = outline[i];
-            const proj = azimuthalProject(lat, lon, centerLat, centerLon, maxRadius, maxDist);
-            const px = cx + proj.x;
-            const py = cy + proj.y;
-            const inBounds = proj.dist <= maxDist * 1.05;
-            if (inBounds) {
-                if (pathParts.length === 0 || !lastInBounds) {
+    // Draw continent outlines (only when zoomed out enough to avoid clipping artifacts)
+    if (maxDist >= 8000) {
+        for (const outline of continentOutlines) {
+            let pathParts = [];
+            let allInBounds = true;
+            let anyInBounds = false;
+
+            for (let i = 0; i < outline.length; i++) {
+                const [lon, lat] = outline[i];
+                const proj = azimuthalProject(lat, lon, centerLat, centerLon, maxRadius, maxDist);
+                const px = cx + proj.x;
+                const py = cy + proj.y;
+                const inBounds = proj.dist <= maxDist;
+
+                if (!inBounds) allInBounds = false;
+                if (inBounds) anyInBounds = true;
+
+                if (i === 0) {
                     pathParts.push(`M${px.toFixed(1)},${py.toFixed(1)}`);
                 } else {
                     pathParts.push(`L${px.toFixed(1)},${py.toFixed(1)}`);
                 }
             }
-            lastInBounds = inBounds;
-        }
-        if (pathParts.length > 2) {
-            svg += `<path d="${pathParts.join(' ')} Z" fill="#1e3a2d" fill-opacity="0.25" stroke="#3a5a4a" stroke-width="0.5" opacity="0.7"/>`;
+
+            // Only draw if all points are in bounds (avoids clipping artifacts)
+            if (allInBounds && pathParts.length > 2) {
+                svg += `<path d="${pathParts.join(' ')} Z" fill="#1e3a2d" fill-opacity="0.25" stroke="#3a5a4a" stroke-width="0.5" opacity="0.7"/>`;
+            }
         }
     }
 
