@@ -14,8 +14,7 @@ Run with: uv run antenna_web.py
 Access at: http://localhost:5000 or behind proxy at https://www.shoeph.one/hf/
 """
 
-from functools import wraps
-from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for, send_file, Response
+from flask import Flask, Blueprint, render_template, request, jsonify, redirect, url_for, send_file
 from datetime import datetime, timezone
 from werkzeug.middleware.proxy_fix import ProxyFix
 from pathlib import Path
@@ -29,28 +28,8 @@ import antenna
 # Proxy must preserve the path (ProxyPass /hf http://127.0.0.1:5000/hf)
 URL_PREFIX = os.getenv('URL_PREFIX', '')
 
-# Basic auth for write operations (override via environment if needed)
-AUTH_USERNAME = os.getenv('HF_AUTH_USER', 'admin')
-AUTH_PASSWORD = os.getenv('HF_AUTH_PASS', '73palomar')
-
-
-def requires_auth(f):
-    """Require HTTP Basic Auth for this endpoint (only if AUTH_PASSWORD is set)."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not AUTH_PASSWORD:
-            return f(*args, **kwargs)  # Auth disabled
-
-        auth = request.authorization
-        if not auth or auth.username != AUTH_USERNAME or auth.password != AUTH_PASSWORD:
-            return Response(
-                'Authentication required for this operation.',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Antenna Control"'}
-            )
-        return f(*args, **kwargs)
-    return decorated
-
+# Note: Write operations are protected by Apache Basic Auth at the proxy level.
+# See /etc/apache2/sites-enabled/shoeph.one-le-ssl.conf for config.
 
 app = Flask(__name__)
 
@@ -152,7 +131,6 @@ def api_antennas_list():
 
 
 @bp.route("/api/antennas", methods=["POST"])
-@requires_auth
 def api_antennas_create():
     """Create a new antenna."""
     data = request.json
@@ -179,7 +157,6 @@ def api_antennas_create():
 
 
 @bp.route("/api/antennas/<label>", methods=["DELETE"])
-@requires_auth
 def api_antennas_delete(label):
     """Delete an antenna."""
     antennas = antenna.load_json(antenna.ANTENNAS_FILE)
@@ -192,7 +169,6 @@ def api_antennas_delete(label):
 
 
 @bp.route("/api/start", methods=["POST"])
-@requires_auth
 def api_start():
     """Start a new session."""
     status = antenna.get_session_status()
@@ -227,7 +203,6 @@ def api_start():
 
 
 @bp.route("/api/stop", methods=["POST"])
-@requires_auth
 def api_stop():
     """Stop the current session."""
     status = antenna.get_session_status()
@@ -246,7 +221,6 @@ def api_stop():
 
 
 @bp.route("/api/pause", methods=["POST"])
-@requires_auth
 def api_pause():
     """Pause the current session."""
     status = antenna.get_session_status()
@@ -267,7 +241,6 @@ def api_pause():
 
 
 @bp.route("/api/resume", methods=["POST"])
-@requires_auth
 def api_resume():
     """Resume a paused session."""
     status = antenna.get_session_status()
@@ -288,7 +261,6 @@ def api_resume():
 
 
 @bp.route("/api/use", methods=["POST"])
-@requires_auth
 def api_use():
     """Switch to an antenna (optionally with band)."""
     status = antenna.get_session_status()
@@ -360,7 +332,6 @@ def api_comparison(comparison_id):
 
 
 @bp.route("/api/analyze", methods=["POST"])
-@requires_auth
 def api_analyze():
     """Run analysis on current session."""
     data = request.json or {}
@@ -390,7 +361,6 @@ def api_analyze():
 
 
 @bp.route("/api/wsjtx/switch", methods=["POST"])
-@requires_auth
 def api_wsjtx_switch():
     """Switch WSJT-X band configuration."""
     data = request.json
@@ -403,7 +373,6 @@ def api_wsjtx_switch():
 
 
 @bp.route("/api/clear", methods=["POST"])
-@requires_auth
 def api_clear():
     """Clear the session log."""
     antenna.save_json(antenna.ANTENNA_LOG_FILE, [])
@@ -639,7 +608,6 @@ def api_wspr_antenna_get():
 
 
 @bp.route("/api/wspr/antenna", methods=["POST"])
-@requires_auth
 def api_wspr_antenna_set():
     """Set current WSPR antenna."""
     data = request.json

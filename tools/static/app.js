@@ -1,11 +1,10 @@
 // Common JavaScript utilities for antenna comparison web app
 
-// Helper for API calls with auth support
+// Helper for API calls
 async function apiCall(endpoint, method = 'GET', body = null) {
     const options = {
         method,
-        headers: {},
-        credentials: 'same-origin'
+        headers: {}
     };
 
     if (body) {
@@ -14,14 +13,6 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     }
 
     const response = await fetch(endpoint, options);
-
-    if (response.status === 401) {
-        alert('Authentication required. You will be prompted to log in.');
-        // Navigate to the endpoint directly to trigger browser's Basic Auth prompt
-        window.location.href = endpoint;
-        throw new Error('Authentication required');
-    }
-
     return response.json();
 }
 
