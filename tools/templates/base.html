@@ -39,11 +39,32 @@
 
         const response = await originalFetch(url, options);
 
-        // Handle 401 - redirect to trigger browser's Basic Auth prompt
+        // Handle 401 - use XMLHttpRequest to trigger browser's native auth prompt
         if (response.status === 401) {
-            alert('Authentication required. You will be prompted to log in.');
-            window.location.href = url;
-            throw new Error('Authentication required');
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open(options.method || 'GET', url, true);
+                xhr.withCredentials = true;
+
+                // Copy headers
+                if (options.headers) {
+                    for (const [key, value] of Object.entries(options.headers)) {
+                        xhr.setRequestHeader(key, value);
+                    }
+                }
+
+                xhr.onload = function() {
+                    // Create a Response-like object
+                    resolve({
+                        ok: xhr.status >= 200 && xhr.status < 300,
+                        status: xhr.status,
+                        json: () => Promise.resolve(JSON.parse(xhr.responseText)),
+                        text: () => Promise.resolve(xhr.responseText)
+                    });
+                };
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send(options.body || null);
+            });
         }
 
         return response;
