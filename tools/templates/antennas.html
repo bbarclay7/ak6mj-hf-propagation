@@ -65,7 +65,7 @@ document.getElementById('antenna-form').addEventListener('submit', async functio
     const msgDiv = document.getElementById('form-message');
 
     try {
-        const response = await fetch('/api/antennas', {
+        const response = await fetch('{{ url_for("main.api_antennas_create") }}', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({label, description})
@@ -92,7 +92,7 @@ async function deleteAntenna(label) {
     if (!confirm(`Delete antenna '${label}'?`)) return;
 
     try {
-        const response = await fetch(`/api/antennas/${label}`, {
+        const response = await fetch(`{{ url_for("main.api_antennas_list") }}/${label}`, {
             method: 'DELETE'
         });
 
