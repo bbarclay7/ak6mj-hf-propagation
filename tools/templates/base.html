@@ -21,6 +21,8 @@
             <span class="nav-divider">|</span>
             <a href="{{ url_for('main.wspr_page') }}" {% if request.endpoint == 'main.wspr_page' %}class="active"{% endif %}>WSPR</a>
             <a href="{{ url_for('main.wspr_compare_page') }}" {% if request.endpoint == 'main.wspr_compare_page' %}class="active"{% endif %}>WSPR Compare</a>
+            <span class="nav-divider">|</span>
+            <a href="/vhf/">VHF Tools</a>
         </div>
     </nav>
 
