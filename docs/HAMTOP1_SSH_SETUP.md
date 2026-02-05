@@ -190,7 +190,7 @@ From www server:
 ssh -p 2222 <username>@<hamtop1-tailscale-ip>
 
 # Example:
-ssh -p 2222 admin@100.116.44.83
+ssh -p 2222 <username>@<hamtop1-tailscale-ip>
 ```
 
 If successful, add to SSH config on www:
@@ -203,9 +203,9 @@ nano ~/.ssh/config
 Add:
 ```ssh-config
 Host hamtop1
-    HostName 100.116.44.83    # hamtop1-1 tailscale IP
+    HostName <hamtop1-tailscale-ip>
     Port 2222
-    User admin                 # Your WSL2 username
+    User <username>            # Your WSL2 username
     IdentityFile ~/.ssh/id_ed25519
     Compression yes
 ```
@@ -224,7 +224,7 @@ crontab -e
 Add:
 ```cron
 # Sync FT8 data from hamtop1 every 15 minutes
-*/15 * * * * rsync -avz hamtop1:/mnt/c/Users/admin/AppData/Local/WSJT-X/ALL.TXT /var/www/local/ft8-tools/ 2>&1 | logger -t ft8-sync
+*/15 * * * * rsync -avz hamtop1:/mnt/c/Users/<username>/AppData/Local/WSJT-X/ALL.TXT /var/www/local/ft8-tools/ 2>&1 | logger -t ft8-sync
 ```
 
 Or use a dedicated sync script (see below).
@@ -262,7 +262,7 @@ Or use a dedicated sync script (see below).
 
 - Verify tailscale is running on hamtop1 (Windows)
 - Check Windows Firewall allows tailscale traffic
-- Try pinging hamtop1 from www: `ping 100.116.44.83`
+- Try pinging hamtop1 from www: `ping <hamtop1-tailscale-ip>`
 
 ### WSL2 IP keeps changing
 
