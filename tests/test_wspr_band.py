@@ -246,5 +246,44 @@ class TestMainFunction:
         assert sent_data == "CONFIG:TEST1,FN20,30,14097100\r\n"
 
 
+    @patch('wspr_band.serial.Serial')
+    @patch('wspr_band.wait_for')
+    def test_compound_callsign_strips_suffix(self, mock_wait_for, mock_serial_class):
+        """AK6MJ-2 should send AK6MJ to beacon with offset grid"""
+        mock_ser = Mock()
+        mock_serial_class.return_value = mock_ser
+        mock_wait_for.side_effect = [
+            "TX:AK6MJ CM97 23 14097100",
+            "OK AK6MJ CM97 23 14097100",
+            "TX:AK6MJ CM97 23 14097100",
+        ]
+
+        with patch('sys.argv', ['wspr_band.py', '20m', '-c', 'AK6MJ-2']):
+            wspr_band.main()
+
+        sent_data = mock_ser.write.call_args[0][0].decode()
+        # Callsign should be AK6MJ (suffix stripped), grid CM97 (offset from CM98)
+        assert sent_data == "CONFIG:AK6MJ,CM97,23,14097100\r\n"
+
+    @patch('wspr_band.serial.Serial')
+    @patch('wspr_band.wait_for')
+    def test_compound_callsign_with_explicit_grid(self, mock_wait_for, mock_serial_class):
+        """Explicit -g should override compound callsign grid offset"""
+        mock_ser = Mock()
+        mock_serial_class.return_value = mock_ser
+        mock_wait_for.side_effect = [
+            "TX:AK6MJ FN20 23 14097100",
+            "OK AK6MJ FN20 23 14097100",
+            "TX:AK6MJ FN20 23 14097100",
+        ]
+
+        with patch('sys.argv', ['wspr_band.py', '20m', '-c', 'AK6MJ-2', '-g', 'FN20']):
+            wspr_band.main()
+
+        sent_data = mock_ser.write.call_args[0][0].decode()
+        # Explicit grid should be used as-is, no offset
+        assert sent_data == "CONFIG:AK6MJ,FN20,23,14097100\r\n"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

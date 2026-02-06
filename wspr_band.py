@@ -67,6 +67,7 @@ Dependencies: pyserial, pyyaml
 """
 
 import argparse
+import re
 import serial
 import sys
 import yaml
@@ -198,6 +199,30 @@ def main():
     call = args.call or cfg["callsign"]
     grid = args.grid or cfg["grid"]
     power = args.power if args.power is not None else cfg["power"]
+
+    # Handle compound callsign suffix (e.g., AK6MJ-2)
+    # WSPR Type 1 only supports standard callsigns (max 6 chars).
+    # Strip the suffix and offset the grid so the beacon is
+    # distinguishable from the primary on WSPRnet.
+    suffix_match = re.match(r'^(.+)-(\d+)$', call)
+    if suffix_match:
+        call_base = suffix_match.group(1)
+        call_suffix = int(suffix_match.group(2))
+        if len(call_base) > 6:
+            sys.exit(f"Base callsign '{call_base}' exceeds beacon 6-character limit")
+        print(f"Compound callsign '{call}':")
+        print(f"  WSPR beacon only supports standard callsigns (max 6 chars)")
+        call = call_base
+        print(f"  Beacon callsign: {call}")
+        # Offset grid to distinguish from primary beacon
+        if not args.grid:
+            if len(grid) == 4 and grid[3].isdigit():
+                orig_grid = grid
+                lat_digit = int(grid[3])
+                new_digit = max(lat_digit - (call_suffix - 1), 0)
+                grid = grid[:3] + str(new_digit)
+                if grid != orig_grid:
+                    print(f"  Grid: {orig_grid} -> {grid} (offset to distinguish on WSPRnet)")
 
     if power not in POWERS:
         sys.exit(f"Invalid power {power} dBm. Valid: {list(POWERS.keys())}")

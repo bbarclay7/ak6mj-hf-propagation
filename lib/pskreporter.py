@@ -48,6 +48,7 @@ def fetch_spots(callsign: str, start_time: datetime, end_time: datetime | None =
             for report in root.findall('./receptionReport'):
                 receiver_call = report.get('receiverCallsign', '?')
                 receiver_grid = report.get('receiverLocator', '?')
+                sender_grid = report.get('senderLocator', '?')
                 freq_khz = int(report.get('frequency', 0))
                 freq_mhz = freq_khz / 1000.0
                 snr_str = report.get('sNR', 'N/A')
@@ -69,6 +70,7 @@ def fetch_spots(callsign: str, start_time: datetime, end_time: datetime | None =
                 spots.append({
                     'receiver_call': receiver_call,
                     'receiver_grid': receiver_grid,
+                    'sender_grid': sender_grid,
                     'freq_mhz': freq_mhz,
                     'band': band,
                     'snr': snr,
